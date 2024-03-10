@@ -1,0 +1,11 @@
+# Ignore dataset folders
+maildir/
+data/
+
+# Ignore specific dataset files
+*.csv
+*.xlsx
+*.json
+
+# Ignore environment-specific files
+.venv
