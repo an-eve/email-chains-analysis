@@ -1,0 +1,25 @@
+Missing values in the dataframe:
+file                              0
+Message-ID                        0
+Date                              0
+From                              0
+To                                0
+Subject                        8576
+Cc                           186493
+Mime-Version                      7
+Content-Type                      7
+Content-Transfer-Encoding         7
+Bcc                          186493
+X-From                            7
+X-To                              7
+X-cc                         186029
+X-bcc                        246400
+X-Folder                          7
+X-Origin                          7
+X-FileName                     4000
+content                           0
+user                              0
+dtype: int64
+
+
+The dataset's size after cleaning: (246560, 20)
