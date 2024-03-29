@@ -9,3 +9,5 @@ SUBJECT_GROUPS_2_PLUS = 'data/subject-groups/groups_2_plus.json'
 SUBJECT_GROUPS_3 = 'data/subject-groups/groups_3.json'
 SUBJECT_GROUPS_3_PLUS = 'data/subject-groups/groups_3_plus.json'
 SUBJECT_GROUPS_6 = 'data/subject-groups/groups_6.json'
+
+CHECK_GROUPS = 'data/check-groups/combined_text.txt'

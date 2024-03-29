@@ -117,6 +117,10 @@ if __name__ == "__main__":
     process_subject_groups()
 
 
+"""
+combined_path = '../' + 'data/check-groups/combined_text.txt'
+print_text_from_files(groups, 'Alternate Decision on CPA Implementation (DWR rates and Direct Access)', combined_path)
+"""
 
 
 
