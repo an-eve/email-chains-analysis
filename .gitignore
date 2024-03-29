@@ -1,11 +1,16 @@
 # Ignore dataset folders
 maildir/
 data/
+check-groups/
+
+# Ignore images folder
+images/
 
 # Ignore specific dataset files
 *.csv
 *.xlsx
 *.json
+*.txt
 
 # Ignore environment-specific files
 .venv
