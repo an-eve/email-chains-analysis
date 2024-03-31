@@ -17,3 +17,4 @@ images/
 
 # Ignore Python bytecode cache directory
 __pycache__/
+**/__pycache__/
