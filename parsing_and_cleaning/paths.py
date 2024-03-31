@@ -10,6 +10,9 @@ EXAMPLE_IDENTICAL_DIFFERENT_TIME = 'data/cleaning-stage/examples_time_duplicate.
 IMAGES = 'images/'
 
 DATA_NO_DUPLICATE = 'data/no-duplicate-mails-data.csv'
+DATA_NO_DUPLICATE_TIME = 'data/no-duplicate-time-mails-data.csv'
 
 DATA_CLEAN_SUBJECT = 'data/clean-mails-data.csv'
 DATA_CLEAN_EMPTY_SUBJECT = 'data/clean-empty-subject-mails-data.csv'
+DATA_CLEAN_SUBJECT_TIME = 'data/clean-time-mails-data.csv'
+DATA_CLEAN_EMPTY_SUBJECT_TIME = 'data/clean-empty-subject-time-mails-data.csv'
