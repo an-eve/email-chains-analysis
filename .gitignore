@@ -14,3 +14,6 @@ images/
 
 # Ignore environment-specific files
 .venv
+
+# Ignore Python bytecode cache directory
+__pycache__/
