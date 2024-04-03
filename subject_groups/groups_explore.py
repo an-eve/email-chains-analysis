@@ -56,10 +56,7 @@ def process_subject_groups():
     length_counts = Counter(length_values)
 
     # Create a dictionary to hold the counts of lengths less than or equal to 20
-    length_counts_filtered = {}
-    for length, count in length_counts.items():
-        if isinstance(length, int) and length <= 20:
-            length_counts_filtered[length] = count
+    length_counts = sorted(length_counts.items())[:20]
 
     # Get count for lengths greater than 20
     greater_than_20_count = sum(1 for length in length_values if isinstance(length, int) and length > 20)
@@ -67,7 +64,7 @@ def process_subject_groups():
     # Print the table
     print("Length   | Number of Instances")
     print("-----------------------------")
-    for length, count in sorted(length_counts_filtered.items()):
+    for length, count in length_counts:
         print(f"{length:<9} | {count:<18}")
     
     # Print count for lengths greater than 20

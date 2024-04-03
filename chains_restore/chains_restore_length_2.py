@@ -89,10 +89,10 @@ def print_text_from_files(dictionary, key, combined_path):
 
 
 if __name__ == "__main__":
-    with open(paths.SUBJECT_GROUPS_2_TIME, 'r') as file:
+    with open(paths.SUBJECT_GROUPS_2, 'r') as file:
         groups = json.load(file)
         
-    df = pd.read_csv(paths.DATA_CLEAN_SUBJECT_TIME)
+    df = pd.read_csv(paths.DATA_CLEAN_SUBJECT)
     df.set_index('file', inplace=True)
 
     # Split email addresses in the DataFrame
@@ -125,6 +125,57 @@ if __name__ == "__main__":
     
     print(f"\nNumber of chains with the length 2: {len(chains)}")
 
+    new = []
+    for key, value in groups.items():
+        chains[key]['ids'] = sorted(chains[key]['ids'], key=lambda x: df.loc[x, 'date-timestamp'])
+        # Reply, add  FOLLOW UPS
+        if df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients']):
+            new.append(key)
+            del chains[key]
+            continue  
+        if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*30*4:
+            del chains[key]
+            continue
+        if not (df.loc[value['ids'][1], 'fwd'] or df.loc[value['ids'][1], 're']):
+            # Wrong time situation
+            if df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][0], 're']:
+                if not df.loc[value['ids'][0], 'From'].intersection(df.loc[value['ids'][1], 'recepients']):
+                    del chains[key]
+                    continue              
+                if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*6:
+                    del chains[key]
+                    continue 
+            # Skipped Re or Fwd situation
+            else:
+                del chains[key]
+                continue 
+        # With Re situation
+        """
+        if not df.loc[value['ids'][1], 'fwd']:
+            # Usual reply
+            if df.loc[value['ids'][0], 'From'].intersection(df.loc[value['ids'][1], 'recepients']):
+                continue
+            # Follow up situation
+            elif not (df.loc[value['ids'][0], 'From'].intersection(df.loc[value['ids'][1], 'From']) and df.loc[value['ids'][0], 'recepients'].intersection(df.loc[value['ids'][1], 'recepients'])):
+                new.append(key)
+                del chains[key]
+                continue
+        """
+        """
+        if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*30*4:
+            del chains[key]
+        """
+    print(f"\nNumber of chains with the length 2: {len(chains)}")
+    
+    # Number of fathters without Re or Fwd
+    fathers_proper = len(chains)
+    for chain in chains.values():
+        fathers_proper -= int(has_re_prefix(df.loc[chain['ids'][0], 'Subject']) or has_fwd_prefix(df.loc[chain['ids'][0], 'Subject']))
+    print(f"\n Percentage of fathers without Re or Fwd: {fathers_proper/len(chains)*100:.1f} %")
+
+
+
+
     with open(paths.CHAINS_2, 'w') as file:
         json.dump(chains, file)
 
@@ -135,3 +186,6 @@ with open('../'+paths.CHAINS_2, 'r') as file:
 for i, key in enumerate(list(chains.keys())[:100]):
     print_text_from_files(chains, key, '../'+paths.CHECK_CHAINS+f'chain_{i+1}')
 """
+
+for i, key in enumerate(new[:100]):
+    print_text_from_files(groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
