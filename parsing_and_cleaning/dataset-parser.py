@@ -22,6 +22,38 @@ def get_text_from_email(msg):
             parts.append(part.get_payload())
     return ''.join(parts)
 
+
+def clean_text(text):
+    '''Cleans the text content for later processing, removing unnecessary characters and spaces.
+    
+    Args:
+    - text (str): Text content to be cleaned.
+    
+    Returns:
+    - str: Cleaned text content.
+    '''
+    # Remove the phrase "Please respond to" from each line
+    text = re.sub(r'Please respond to', '', text, flags=re.IGNORECASE)
+     
+    # Remove lines similar to "- filename.extension"
+    text = re.sub(r'- .*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls)', '', text, flags=re.IGNORECASE)
+    
+    # Remove document names enclosed within double angle brackets
+    text = re.sub(r'<<.*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls)>>', '', text, flags=re.IGNORECASE)
+    
+    
+    # Remove <Embedded StdOleLink>, <Embedded Picture (Metafile)>, and ">"
+    text = re.sub(r'<Embedded StdOleLink>|<Embedded Picture \(Metafile\)>|>', '', text, flags=re.IGNORECASE)
+    
+    # Clean up other unnecessary characters and spaces
+    text = re.sub(r'[\n\t]+', ' ', text)
+    text = re.sub(r'\s{2,}', ' ', text)
+    text = text.strip()
+    
+    return text
+
+# The first version of the cleaning content function
+"""
 def clean_text(text):
     '''Cleans the text content for later processing, removing unnecessary characters and spaces.
     
@@ -35,6 +67,7 @@ def clean_text(text):
     text = re.sub(r'\s{2,}', ' ', text)
     text = text.strip()
     return text
+"""
 
 def convert_date_to_timestamp(date_string):
     '''Converts date string to a Unix timestamp, considering the given timezone.
@@ -117,7 +150,7 @@ if __name__ == "__main__":
 
     # Parse content from emails
     emails_df['content'] = list(map(get_text_from_email, messages))
-    emails_df['content-clean'] = emails_df['content'].apply(clean_text)
+    emails_df['content-clean'] = emails_df['content'].apply(clean_text) #<Embedded StdOleLink>
 
     # Extract the root of 'file' as 'user''Date'
     emails_df['user'] = emails_df['file'].map(lambda x: x.split('/')[2])

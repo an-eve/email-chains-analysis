@@ -61,8 +61,11 @@ def process_subject_groups():
     # Get count for lengths greater than 20
     greater_than_20_count = sum(1 for length in length_values if isinstance(length, int) and length > 20)
 
+    # Total number
+    print(f"Total number of the subject groups: {len(groups)}\n\n")
+    
     # Print the table
-    print("Length   | Number of Instances")
+    print("Length    | Number of Instances")
     print("-----------------------------")
     for length, count in length_counts:
         print(f"{length:<9} | {count:<18}")

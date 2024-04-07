@@ -184,11 +184,12 @@ if __name__ == "__main__":
                     if df.loc[email, 'From'].intersection(df.loc[item, 'recepients']):
                         if not (df.loc[email, 'fwd'] or df.loc[email, 're']):
                             continue
-                        # Fwd or Re
-                        if (not df.loc[email, 'fwd']) or (df.loc[item, 're'] and df.loc[email, 're']):
-                            if not df.loc[item, 'From'].intersection(df.loc[email, 'recepients']):
+                         # Reply or Forward
+                        if not df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            # Follow-up
+                            if not ((df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])))):
                                 continue
-                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*30*4:
+                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*30*2:
                             continue
                         candidate.append(email)
                         emails_list.remove(email)
@@ -197,8 +198,8 @@ if __name__ == "__main__":
                 chains[key]['length'].append(len(candidate))
                 chains[key]['chains'].append(candidate)
         if len(chains[key]['chains']) == 0:
-            del chains[key]          
-
+            del chains[key]       
+            
 
     total_chains = 0
     length_distribution = {}

@@ -14,8 +14,8 @@ def remove_duplicates_and_merge():
 
     if time_flag:
         # Columns to ignore when identifying duplicates
-        columns_to_ignore = ['file', 'Message-ID', 'date-timestamp', 'Date', 'X-From', 'X-To', 'X-cc', 'X-bcc','X-Folder', 'X-Origin', 'X-FileName', 'user', 'content']
-
+        columns_to_ignore = ['file', 'Message-ID', 'date-timestamp', 'Date', 'Mime-Version', 'Content-Type', 'Content-Transfer-Encoding', 'X-From', 'X-To', 'X-cc', 'X-bcc','X-Folder', 'X-Origin', 'X-FileName', 'user', 'content']
+        
         # Remove duplicates based on a subset of columns
         df_subset = df.drop(columns=columns_to_ignore)
         df_subset_no_identical = df_subset.drop_duplicates()

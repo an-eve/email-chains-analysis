@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import json
+import random
 import re
 import paths
 
@@ -89,10 +90,12 @@ def print_text_from_files(dictionary, key, combined_path):
 
 
 if __name__ == "__main__":
-    with open(paths.SUBJECT_GROUPS_2, 'r') as file:
+    with open("../"+paths.SUBJECT_GROUPS_2, 'r') as file:
         groups = json.load(file)
         
-    df = pd.read_csv(paths.DATA_CLEAN_SUBJECT)
+    print(f"Number of the subject groups of the length 2: {len(groups)}")
+        
+    df = pd.read_csv("../"+paths.DATA_CLEAN_SUBJECT)
     df.set_index('file', inplace=True)
 
     # Split email addresses in the DataFrame
@@ -107,65 +110,103 @@ if __name__ == "__main__":
     df['re'] = df['Subject'].apply(has_re_prefix)
     df['fwd'] = df['Subject'].apply(has_fwd_prefix)
 
-    chains = groups.copy()
-    
-    for key, value in groups.items():
-        chains[key]['ids'] = sorted(chains[key]['ids'], key=lambda x: df.loc[x, 'date-timestamp'])
-        if not df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients']):
+    ordered_groups = groups.copy()
+    for key, value in ordered_groups.items():
+        ordered_groups[key]['ids'] = sorted(ordered_groups[key]['ids'], key=lambda x: df.loc[x, 'date-timestamp'])
+
+
+    chains = ordered_groups.copy()
+    new = []
+    for key, value in ordered_groups.items():
+        # Time period regulation
+        if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*30*2:
             del chains[key]
-            continue  
-        if df.loc[value['ids'][0], 're'] or df.loc[value['ids'][0], 'fwd']:
-            if not (df.loc[value['ids'][1], 'fwd'] or df.loc[value['ids'][1], 're']):
+            continue      
+        # Re/Fwd neither in the first email, nor in the second (follow-ups are difficult 
+        # to detect, they could be mixed up with 2 separate emails with the same subject)
+        if not (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][1], 're'] or df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][1], 'fwd']):
+            # Shorter time to make sure it's a chain
+            if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*7:
+                #new.append(key) !!! necessary to explore to adjust time
                 del chains[key]
                 continue
-        if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*120:
-            if df.loc[value['ids'][1], 're'] == False:
-                if df.loc[value['ids'][1], 'fwd'] == False:
-                    del chains[key]
-    
-    print(f"\nNumber of chains with the length 2: {len(chains)}")
-
-    new = []
-    for key, value in groups.items():
-        chains[key]['ids'] = sorted(chains[key]['ids'], key=lambda x: df.loc[x, 'date-timestamp'])
-        # Reply, add  FOLLOW UPS
-        if df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients']):
-            new.append(key)
-            del chains[key]
-            continue  
-        if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*30*4:
+            # Forward and (maybe?) Reply
+            if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and (df.loc[value['ids'][0], 'content-clean'] in df.loc[value['ids'][1], 'content-clean']):
+                if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
+                    new.append(key)
+                    continue
+            # Reply or Forward
+            if df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])):
+                continue
             del chains[key]
             continue
-        if not (df.loc[value['ids'][1], 'fwd'] or df.loc[value['ids'][1], 're']):
-            # Wrong time situation
-            if df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][0], 're']:
-                if not df.loc[value['ids'][0], 'From'].intersection(df.loc[value['ids'][1], 'recepients']):
-                    del chains[key]
-                    continue              
-                if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*6:
-                    del chains[key]
-                    continue 
-            # Skipped Re or Fwd situation
-            else:
-                del chains[key]
-                continue 
-        # With Re situation
-        """
-        if not df.loc[value['ids'][1], 'fwd']:
-            # Usual reply
-            if df.loc[value['ids'][0], 'From'].intersection(df.loc[value['ids'][1], 'recepients']):
+        # Re/Fwd neither in the second email
+        elif (df.loc[value['ids'][1], 'fwd'] or df.loc[value['ids'][1], 're']):
+            # Reply or Forward
+            if df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])):
                 continue
-            # Follow up situation
-            elif not (df.loc[value['ids'][0], 'From'].intersection(df.loc[value['ids'][1], 'From']) and df.loc[value['ids'][0], 'recepients'].intersection(df.loc[value['ids'][1], 'recepients'])):
-                new.append(key)
-                del chains[key]
-                continue
-        """
-        """
-        if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*30*4:
+            # Another case of Forward
+            if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and df.loc[value['ids'][1], 'fwd']:
+                if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
+                    continue
+            # Follow-up
+            if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and ((df.loc[value['ids'][1], 'recepients'].difference(df.loc[value['ids'][1], 'From'])).intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From']))):
+                if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
+                    #new.append(key)
+                    continue
+            #new.append(key)
             del chains[key]
-        """
+            continue    
+        else:
+            #new.append(key)
+            del chains[key]
+                  
+
     print(f"\nNumber of chains with the length 2: {len(chains)}")
+    
+    # Some data exploration 
+    # Make sense for timing
+    s=0
+    new =[]
+    for key, value in groups.items():
+        if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*30*2:
+            if (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][1], 're'] or df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][1], 'fwd']):
+                new.append(key)
+                s += 1
+    s
+    for i, key in enumerate(new):
+        print_text_from_files(groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
+    
+ 
+     # no Re or Fwd for the first, but re or fwd for the second
+    s=0
+    for key, value in groups.items():
+        if (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][0], 'fwd']) and not(df.loc[value['ids'][1], 're'] or df.loc[value['ids'][1], 'fwd']):
+            s += 1
+    s #few instances, 800, so poher
+    
+    # no Re or Fwd at all
+    s=0
+    for key, value in groups.items():
+        if not (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][1], 're'] or df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][1], 'fwd']):
+            s += 1
+    s
+    # still Looks like reply
+    s=0
+    new =[]
+    for key, value in ordered_groups.items():
+        if not (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][1], 're'] or df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][1], 'fwd']):
+            if df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])):
+                # Shortertime to make sure
+                if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) < (60**2)*24*7:
+                    s += 1
+                    new.append(key)
+        # Cannot check follow up here, impossible to distincct from repeating email
+        # fwd difficult, it could be the same person receiving one, sending another email
+    s
+    for i, key in enumerate(new):
+        print_text_from_files(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
+    
     
     # Number of fathters without Re or Fwd
     fathers_proper = len(chains)
@@ -187,5 +228,13 @@ for i, key in enumerate(list(chains.keys())[:100]):
     print_text_from_files(chains, key, '../'+paths.CHECK_CHAINS+f'chain_{i+1}')
 """
 
-for i, key in enumerate(new[:100]):
+for i, key in enumerate(new[:200]):
     print_text_from_files(groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
+    
+random_new = random.sample(new, 200)
+for i, key in enumerate(random_new):
+    print_text_from_files(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
+    
+for i, key in enumerate(new):
+    print_text_from_files(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
+
