@@ -25,6 +25,11 @@ def find_identical_rows(df, row_index):
 
 def main():
     df = pd.read_csv(paths.PARSED_DATA) 
+    
+    # Count the number of NaNs for each column
+    nan_counts = df.isna().sum()
+    print(f"Number of NaNs for every column:\n{nan_counts}")
+    
     identical_mapping_exist = True
     
     if not identical_mapping_exist:

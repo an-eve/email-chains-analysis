@@ -189,7 +189,7 @@ if __name__ == "__main__":
                             # Follow-up
                             if not ((df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])))):
                                 continue
-                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*30*2:
+                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*30*3:
                             continue
                         candidate.append(email)
                         emails_list.remove(email)

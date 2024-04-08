@@ -66,6 +66,17 @@ def has_fwd_prefix(string):
     match = re.search(prefix_pattern, string)
     return bool(match)
 
+def contains_specific_phrases(text):
+    '''Checks if the text contains specific phrases case-insensitively using regular expressions.
+
+    Args:
+    - text (str): The text to be checked.
+
+    Returns:
+    - bool: True if the text contains any of the specified phrases (case-insensitive), False otherwise.
+    '''
+    return bool(re.search(r'Forwarded by|Original Message|\(Revision: \d\)', text, flags=re.IGNORECASE))
+
 def print_text_from_files(dictionary, key, combined_path):
     '''
     Print and save the combined text from files associated with a given subject line.
@@ -97,6 +108,11 @@ if __name__ == "__main__":
         
     df = pd.read_csv("../"+paths.DATA_CLEAN_SUBJECT)
     df.set_index('file', inplace=True)
+    
+    # Count the number of NaNs for each column
+    nan_counts = df.isna().sum()
+    print(f"Number of NaNs for every column:\n{nan_counts}")
+    df['content-clean'] = df['content-clean'].fillna('')
 
     # Split email addresses in the DataFrame
     df['From'] = df['From'].map(split_email_addresses)
@@ -127,13 +143,11 @@ if __name__ == "__main__":
         if not (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][1], 're'] or df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][1], 'fwd']):
             # Shorter time to make sure it's a chain
             if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*7:
-                #new.append(key) !!! necessary to explore to adjust time
                 del chains[key]
                 continue
             # Forward and (maybe?) Reply
-            if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and (df.loc[value['ids'][0], 'content-clean'] in df.loc[value['ids'][1], 'content-clean']):
+            if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and (df.loc[value['ids'][0], 'content-clean'] in df.loc[value['ids'][1], 'content-clean']) and contains_specific_phrases(df.loc[value['ids'][1], 'content-clean']):
                 if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
-                    new.append(key)
                     continue
             # Reply or Forward
             if df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])):
@@ -148,6 +162,7 @@ if __name__ == "__main__":
             # Another case of Forward
             if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and df.loc[value['ids'][1], 'fwd']:
                 if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
+                    #new.append(key)
                     continue
             # Follow-up
             if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and ((df.loc[value['ids'][1], 'recepients'].difference(df.loc[value['ids'][1], 'From'])).intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From']))):
@@ -158,7 +173,7 @@ if __name__ == "__main__":
             del chains[key]
             continue    
         else:
-            #new.append(key)
+            new.append(key)
             del chains[key]
                   
 
@@ -183,7 +198,7 @@ if __name__ == "__main__":
     for key, value in groups.items():
         if (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][0], 'fwd']) and not(df.loc[value['ids'][1], 're'] or df.loc[value['ids'][1], 'fwd']):
             s += 1
-    s #few instances, 800, so poher
+    s #few instances, 800, so not important
     
     # no Re or Fwd at all
     s=0
@@ -231,7 +246,7 @@ for i, key in enumerate(list(chains.keys())[:100]):
 for i, key in enumerate(new[:200]):
     print_text_from_files(groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
     
-random_new = random.sample(new, 200)
+random_new = random.sample(new, 100)
 for i, key in enumerate(random_new):
     print_text_from_files(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
     

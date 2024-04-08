@@ -36,14 +36,14 @@ def clean_text(text):
     text = re.sub(r'Please respond to', '', text, flags=re.IGNORECASE)
      
     # Remove lines similar to "- filename.extension"
-    text = re.sub(r'- .*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls)', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'- .*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf)', '', text, flags=re.IGNORECASE)
     
     # Remove document names enclosed within double angle brackets
-    text = re.sub(r'<<.*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls)>>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<<.*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf)>>', '', text, flags=re.IGNORECASE)
     
     
     # Remove <Embedded StdOleLink>, <Embedded Picture (Metafile)>, and ">"
-    text = re.sub(r'<Embedded StdOleLink>|<Embedded Picture \(Metafile\)>|>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded StdOleLink>|<Embedded Picture \(Metafile\)>|<Embedded Microsoft Excel Worksheet>|>', '', text, flags=re.IGNORECASE)
     
     # Clean up other unnecessary characters and spaces
     text = re.sub(r'[\n\t]+', ' ', text)
@@ -86,19 +86,6 @@ def convert_date_to_timestamp(date_string):
     timestamp = pst_date.timestamp()    
     return timestamp
 
-def process_email_content(msg):
-    '''Process email content to extract text and clean it.
-    
-    Args:
-    - msg: Email message object.
-    
-    Returns:
-    - str: Cleaned text content extracted from the email message.
-    '''
-    text = get_text_from_email(msg)
-    cleaned_text = clean_text(text)
-    return cleaned_text
-
 def process_date_string(date_string):
     '''Process date string to convert it into a timestamp.
     
@@ -125,7 +112,7 @@ if __name__ == "__main__":
     emails_df = emails_df.rename(columns=new_column_names)
 
     # Display an example message
-    print(f"\nExample message:\n{emails_df.message[10]}\n")
+    print(f"\nExample message:\n\n{emails_df.message[10]}\n")
 
     ######################################################################
 
@@ -150,7 +137,7 @@ if __name__ == "__main__":
 
     # Parse content from emails
     emails_df['content'] = list(map(get_text_from_email, messages))
-    emails_df['content-clean'] = emails_df['content'].apply(clean_text) #<Embedded StdOleLink>
+    emails_df['content-clean'] = emails_df['content'].apply(clean_text) 
 
     # Extract the root of 'file' as 'user''Date'
     emails_df['user'] = emails_df['file'].map(lambda x: x.split('/')[2])
@@ -160,6 +147,10 @@ if __name__ == "__main__":
 
     print(f"\nFirst rows after parsing:\n{emails_df.head()}\n")
     print(f"The dataset's size after parsing: {emails_df.shape}\n")
+    
+    # Count the number of NaNs for each column
+    nan_counts = emails_df.isna().sum()
+    print(f"Number of NaNs for every column:\n{nan_counts}")
 
     # Save the parsed DataFrame to a CSV file
     emails_df.to_csv(paths.PARSED_DATA, index=False)

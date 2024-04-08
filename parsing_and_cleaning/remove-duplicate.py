@@ -11,10 +11,15 @@ def remove_duplicates_and_merge():
 
     # Display the size of the dataset with duplicates
     print(f"\nThe dataset's size with duplicates: {df.shape}\n")
+    
+    # Count the number of NaNs for each column
+    nan_counts = df.isna().sum()
+    print(f"Number of NaNs for every column:\n{nan_counts}")
+    df = df.fillna('')
 
     if time_flag:
         # Columns to ignore when identifying duplicates
-        columns_to_ignore = ['file', 'Message-ID', 'date-timestamp', 'Date', 'Mime-Version', 'Content-Type', 'Content-Transfer-Encoding', 'X-From', 'X-To', 'X-cc', 'X-bcc','X-Folder', 'X-Origin', 'X-FileName', 'user', 'content']
+        columns_to_ignore = ['file', 'Message-ID', 'date-timestamp', 'Date', 'X-From', 'X-To', 'X-cc', 'X-bcc','X-Folder', 'X-Origin', 'X-FileName', 'user', 'content']
         
         # Remove duplicates based on a subset of columns
         df_subset = df.drop(columns=columns_to_ignore)
