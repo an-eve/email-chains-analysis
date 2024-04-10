@@ -32,18 +32,22 @@ def clean_text(text):
     Returns:
     - str: Cleaned text content.
     '''
+        # Remove the symbols
+    text = re.sub(r'=20', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'=09', '', text, flags=re.IGNORECASE)
+    
     # Remove the phrase "Please respond to" from each line
     text = re.sub(r'Please respond to', '', text, flags=re.IGNORECASE)
      
     # Remove lines similar to "- filename.extension"
-    text = re.sub(r'- .*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf)', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'- .*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf|vcf|tif)', '', text, flags=re.IGNORECASE)
     
     # Remove document names enclosed within double angle brackets
-    text = re.sub(r'<<.*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf)>>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<<.*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf|vcf|tif)>>', '', text, flags=re.IGNORECASE)
     
     
     # Remove <Embedded StdOleLink>, <Embedded Picture (Metafile)>, and ">"
-    text = re.sub(r'<Embedded StdOleLink>|<Embedded Picture \(Metafile\)>|<Embedded Microsoft Excel Worksheet>|>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded StdOleLink>|<Embedded Picture \(Metafile\)>|<Embedded Microsoft Excel Worksheet>|<Embedded Picture (Device Independent Bitmap)>|>', '', text, flags=re.IGNORECASE)
     
     # Clean up other unnecessary characters and spaces
     text = re.sub(r'[\n\t]+', ' ', text)

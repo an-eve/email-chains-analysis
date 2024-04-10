@@ -149,4 +149,3 @@ with open(example_path, 'w') as combined_file:
         combined_file.write('\n'*3 + 'Identical Message:' + '\n'*2)
         combined_file.write(file.read())
 """ 
-

@@ -77,6 +77,47 @@ def contains_specific_phrases(text):
     '''
     return bool(re.search(r'Forwarded by|Original Message|\(Revision: \d\)', text, flags=re.IGNORECASE))
 
+
+def add_clean_text(text):
+    '''Cleans the text content for later processing, removing unnecessary characters and spaces.
+    
+    Args:
+    - text (str): Text content to be cleaned.
+    
+    Returns:
+    - str: Cleaned text content.
+    '''
+    # Remove the symbols
+    text = re.sub(r'=20', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'=09', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'=018', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'=01', ' ', text, flags=re.IGNORECASE)
+
+    text = re.sub(r'_!', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'_', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'\*', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'\?', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'~', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'3D', ' ', text, flags=re.IGNORECASE)
+    
+    text = re.sub(r'\+', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'"', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'&', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'=\n', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'=', '', text, flags=re.IGNORECASE)
+    
+    text = re.sub(r'<Embedded StdOleLink>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Picture (Metafile)>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded >', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Picture (Device Independent Bitmap)>', ' ', text, flags=re.IGNORECASE)
+
+    # Clean up other unnecessary characters and spaces
+    text = re.sub(r'[\n\t]+', ' ', text)
+    text = re.sub(r'\s{2,}', ' ', text)
+    text = text.strip()
+    
+    return text.lower()
+
 def print_text_from_files(dictionary, key, combined_path):
     '''
     Print and save the combined text from files associated with a given subject line.
@@ -154,7 +195,7 @@ if __name__ == "__main__":
                 continue
             del chains[key]
             continue
-        # Re/Fwd neither in the second email
+        # Re/Fwd in the second email
         elif (df.loc[value['ids'][1], 'fwd'] or df.loc[value['ids'][1], 're']):
             # Reply or Forward
             if df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])):
@@ -162,18 +203,38 @@ if __name__ == "__main__":
             # Another case of Forward
             if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and df.loc[value['ids'][1], 'fwd']:
                 if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
-                    #new.append(key)
                     continue
             # Follow-up
             if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and ((df.loc[value['ids'][1], 'recepients'].difference(df.loc[value['ids'][1], 'From'])).intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From']))):
                 if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
-                    #new.append(key)
+                    # Avoiding time errors emails
+                    if (abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp'])/(60*60)) % 1 == 0:
+                        if (add_clean_text(df.loc[value['ids'][0], 'content-clean']) == add_clean_text(df.loc[value['ids'][1], 'content-clean'])) or (df.loc[value['ids'][0], 'Content-Type'] != df.loc[value['ids'][1], 'Content-Type']):
+                            del chains[key]
+                            continue  
                     continue
-            #new.append(key)
             del chains[key]
             continue    
+        # Wrong Timing
+        elif (df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][0], 're']):
+            # Shorter time to make sure it's a chain
+            if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*8:
+                del chains[key]
+                continue
+            # Reply or Forward
+            if df.loc[value['ids'][0], 'From'].intersection(df.loc[value['ids'][1], 'recepients'].difference(df.loc[value['ids'][1], 'From'])):
+                continue
+            # Another case of Forward
+            if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and df.loc[value['ids'][0], 'fwd']:
+                if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
+                    continue
+            # Follow-up
+            if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and ((df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])).intersection(df.loc[value['ids'][1], 'recepients'].difference(df.loc[value['ids'][1], 'From']))):
+                if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
+                    continue
+            del chains[key]
+            continue   
         else:
-            new.append(key)
             del chains[key]
                   
 
@@ -252,4 +313,5 @@ for i, key in enumerate(random_new):
     
 for i, key in enumerate(new):
     print_text_from_files(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
+
 
