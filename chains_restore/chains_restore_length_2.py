@@ -92,24 +92,43 @@ def add_clean_text(text):
     text = re.sub(r'=09', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'=018', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'=01', ' ', text, flags=re.IGNORECASE)
-
-    text = re.sub(r'_!', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'_', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'\*', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'\?', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'~', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'3D', ' ', text, flags=re.IGNORECASE)
     
+    text = re.sub(r'\?', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'=\n', '', text, flags=re.IGNORECASE)
+    
+    # Remove the phrase "Please respond to" from each line
+    text = re.sub(r'Please respond to', '', text, flags=re.IGNORECASE)
+    # Remove lines similar to "- filename.extension"
+    text = re.sub(r'- .*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf|vcf|tif)', '', text, flags=re.IGNORECASE)  
+    # Remove document names enclosed within double angle brackets
+    text = re.sub(r'<<.*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf|vcf|tif)>>', '', text, flags=re.IGNORECASE)   
+    
+    # Remove <Embedded StdOleLink>, <Embedded Picture (Metafile)>, ect.
+    text = re.sub(r'<Embedded StdOleLink>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'\[IMAGE\]', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Microsoft Excel Worksheet>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Picture \(Device Independent Bitmap\)>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Picture \(Metafile\)>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded >', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Picture (Device Independent Bitmap)>', ' ', text, flags=re.IGNORECASE)
+    
+    # Remove the symbols
+    text = re.sub(r'_!', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'!_', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'_', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'\*', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'~', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'-', ' ', text, flags=re.IGNORECASE)
+    
+    text = re.sub(r'>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\;', '', text, flags=re.IGNORECASE)   
     text = re.sub(r'\+', '', text, flags=re.IGNORECASE)
     text = re.sub(r'"', '', text, flags=re.IGNORECASE)
     text = re.sub(r'&', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'=\n', '', text, flags=re.IGNORECASE)
     text = re.sub(r'=', '', text, flags=re.IGNORECASE)
-    
-    text = re.sub(r'<Embedded StdOleLink>', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded Picture (Metafile)>', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded >', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded Picture (Device Independent Bitmap)>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'=', '', text, flags=re.IGNORECASE)
 
     # Clean up other unnecessary characters and spaces
     text = re.sub(r'[\n\t]+', ' ', text)
@@ -148,6 +167,8 @@ if __name__ == "__main__":
     print(f"Number of the subject groups of the length 2: {len(groups)}")
         
     df = pd.read_csv("../"+paths.DATA_CLEAN_SUBJECT)
+    
+    # File name set as index
     df.set_index('file', inplace=True)
     
     # Count the number of NaNs for each column
@@ -171,6 +192,12 @@ if __name__ == "__main__":
     for key, value in ordered_groups.items():
         ordered_groups[key]['ids'] = sorted(ordered_groups[key]['ids'], key=lambda x: df.loc[x, 'date-timestamp'])
 
+    # Add some to the length 1 !!!!!!!!!
+    # Remove raw html emails
+    for key, value in groups.items():
+        if '</html>' in df.loc[ordered_groups[key]['ids'][0], 'content'] or '</html>' in df.loc[ordered_groups[key]['ids'][1], 'content']:
+            del ordered_groups[key]
+   
 
     chains = ordered_groups.copy()
     new = []
@@ -194,7 +221,6 @@ if __name__ == "__main__":
             if df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])):
                 continue
             del chains[key]
-            continue
         # Re/Fwd in the second email
         elif (df.loc[value['ids'][1], 'fwd'] or df.loc[value['ids'][1], 're']):
             # Reply or Forward
@@ -213,8 +239,7 @@ if __name__ == "__main__":
                             del chains[key]
                             continue  
                     continue
-            del chains[key]
-            continue    
+            del chains[key]  
         # Wrong Timing
         elif (df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][0], 're']):
             # Shorter time to make sure it's a chain
@@ -232,11 +257,36 @@ if __name__ == "__main__":
             if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and ((df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])).intersection(df.loc[value['ids'][1], 'recepients'].difference(df.loc[value['ids'][1], 'From']))):
                 if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
                     continue
-            del chains[key]
-            continue   
+            del chains[key]  
         else:
             del chains[key]
-                  
+            
+            
+            
+
+            
+    new = []
+    cleaned =[]
+    for key, value in ordered_groups.items():
+        if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and (df.loc[value['ids'][1], 'recepients'] ==df.loc[value['ids'][0], 'recepients']):
+                if (abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp'])/(60*60)) % 1 == 0:
+                    new.append(key)
+                    if (add_clean_text(df.loc[value['ids'][0], 'content']) != add_clean_text(df.loc[value['ids'][1], 'content'])):
+                        cleaned.append(key)
+                        
+    elem=cleaned[8]
+    with open('../' + paths.CHECK_CHAINS + '1.txt', 'w') as file:
+        file.write(add_clean_text(df.loc[ordered_groups[elem]['ids'][0], 'content']))
+    with open('../' + paths.CHECK_CHAINS + '2.txt', 'w') as file:
+        file.write(add_clean_text(df.loc[ordered_groups[elem]['ids'][1], 'content']))
+        
+    with open('../' + paths.CHECK_CHAINS + '01.txt', 'w') as file:
+        file.write(df.loc[ordered_groups[elem]['ids'][0], 'content'])
+    with open('../' + paths.CHECK_CHAINS + '02.txt', 'w') as file:
+        file.write(df.loc[ordered_groups[elem]['ids'][1], 'content'])
+        
+
+                         
 
     print(f"\nNumber of chains with the length 2: {len(chains)}")
     
@@ -313,5 +363,8 @@ for i, key in enumerate(random_new):
     
 for i, key in enumerate(new):
     print_text_from_files(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
+
+
+
 
 

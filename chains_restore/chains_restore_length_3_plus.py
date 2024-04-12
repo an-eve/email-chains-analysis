@@ -80,24 +80,55 @@ def add_clean_text(text):
     text = re.sub(r'=09', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'=018', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'=01', ' ', text, flags=re.IGNORECASE)
-
+    text = re.sub(r'3D', '', text, flags=re.IGNORECASE)
+    
+    text = re.sub(r'\?', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'=\n', '', text, flags=re.IGNORECASE)
+    
+    # Emails
+    email_pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"  
+    text = re.sub(email_pattern, '', text, flags=re.IGNORECASE)
+    text = re.sub(r'mailto:', '', text, flags=re.IGNORECASE)
+    
+    
+    # Remove the phrase "Please respond to" from each line
+    text = re.sub(r'Please respond to', '', text, flags=re.IGNORECASE)
+    # URLs
+    text = re.sub(r"(https?://[^<>|\s]+)", " ", text, flags = re.IGNORECASE)
+    # Remove lines similar to "- filename.extension"
+    text = re.sub(r'- .*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf|vcf|tif)', '', text, flags=re.IGNORECASE)  
+    # Remove document names enclosed within double angle brackets
+    text = re.sub(r'<<.*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf|vcf|tif)>>', '', text, flags=re.IGNORECASE)   
+    
+    # Remove <Embedded StdOleLink>, <Embedded Picture (Metafile)>, ect.
+    text = re.sub(r'<Embedded StdOleLink>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'\[IMAGE\]', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Microsoft Excel Worksheet>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Picture \(Device Independent Bitmap\)>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Picture \(Metafile\)>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded >', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Picture (Device Independent Bitmap)>', ' ', text, flags=re.IGNORECASE)
+    
+    # Remove the symbols
     text = re.sub(r'_!', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'!_', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'_', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'\*', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'\?', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'~', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'3D', ' ', text, flags=re.IGNORECASE)
-    
+    text = re.sub(r'-', ' ', text, flags=re.IGNORECASE)
+
+    text = re.sub(r'[\[\]]', '', text)
+    text = re.sub(r'[\(\)]', '', text)
+    text = re.sub(r'\'', ' ', text, flags=re.IGNORECASE)  
+    text = re.sub(r',', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'\;', '', text, flags=re.IGNORECASE)   
     text = re.sub(r'\+', '', text, flags=re.IGNORECASE)
     text = re.sub(r'"', '', text, flags=re.IGNORECASE)
     text = re.sub(r'&', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'=\n', '', text, flags=re.IGNORECASE)
     text = re.sub(r'=', '', text, flags=re.IGNORECASE)
-    
-    text = re.sub(r'<Embedded StdOleLink>', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded Picture (Metafile)>', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded >', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded Picture (Device Independent Bitmap)>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'=', '', text, flags=re.IGNORECASE)
 
     # Clean up other unnecessary characters and spaces
     text = re.sub(r'[\n\t]+', ' ', text)
@@ -161,6 +192,21 @@ def print_chains(dictionary, key, combined_path):
         print(f"Text from files combined and saved to {combined_path}")
     else:
         print("Key not found in the dictionary.")
+        
+
+def extract_heading_name(heading):
+    # Define a regular expression pattern to match the heading structure
+    pattern = re.compile(r'\[\d+\]\s*(.*)')
+
+    # Use the pattern to search for matches in the heading
+    match = pattern.match(heading)
+
+    # If there is a match, return the extracted heading name
+    if match:
+        return match.group(1).strip()
+    else:
+        # If no match is found, return None or raise an error, depending on your preference
+        return None
 
 
 if __name__ == "__main__":
@@ -286,21 +332,29 @@ if __name__ == "__main__":
                                 candidate.append(email)
                                 emails_list.remove(email)
                                 break
-                        # Reply or Forward
+                        # Reply
                         if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
-                            candidate.append(email)
-                            emails_list.remove(email)
-                            break       
+                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break    
                     # Re/Fwd in the second email
                     elif (df.loc[email, 'fwd'] or df.loc[email, 're']):
-                        # Reply or Forward
+                        # Reply
                         if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
-                            candidate.append(email)
-                            emails_list.remove(email)
-                            break
+                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
+                        # Forward
+                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[email, 'fwd']:
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
                         # Another case of Forward
                         if (df.loc[item, 'From'] == df.loc[email, 'From']) and df.loc[email, 'fwd']:
-                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                            if add_clean_text(df.loc[item, 'content']) != add_clean_text(df.loc[email, 'content']):
                                 candidate.append(email)
                                 emails_list.remove(email)
                                 break
@@ -309,33 +363,44 @@ if __name__ == "__main__":
                             if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
                                 # Avoiding time errors emails
                                 if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
-                                    if (add_clean_text(df.loc[item, 'content-clean']) == add_clean_text(df.loc[email, 'content-clean'])) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
-                                        continue  
+                                    if (add_clean_text(df.loc[item, 'content']) == add_clean_text(df.loc[email, 'content'])) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
+                                        break 
                                 candidate.append(email)
                                 emails_list.remove(email)
                                 break
                     # Wrong Timing
                     elif (df.loc[item, 'fwd'] or df.loc[item, 're']):
                         # Shorter time to make sure it's a chain
-                        if abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp']) > (60**2)*8:
+                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24:
                             continue
-                        # Reply or Forward
+                        # Reply
+                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
+                        # Forward
                         if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
-                            candidate.append(email)
-                            emails_list.remove(email)
-                            break
+                            if df.loc[item, 'fwd']:
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
                         # Another case of Forward
                         if (df.loc[item, 'From'] == df.loc[email, 'From']) and df.loc[item, 'fwd']:
-                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                            if add_clean_text(df.loc[item, 'content']) != add_clean_text(df.loc[email, 'content']):
                                 candidate.append(email)
                                 emails_list.remove(email)
                                 break
                         # Follow-up
-                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[item, 'recepients'].difference(df.loc[item, 'From'])).intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From']))):
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
                             if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                # Avoiding time errors emails
+                                if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
+                                    if (add_clean_text(df.loc[item, 'content']) == add_clean_text(df.loc[email, 'content'])) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
+                                        break  
                                 candidate.append(email)
                                 emails_list.remove(email)
-                                break 
+                                break
                     else:
                         continue             
             if len(candidate) > 1:
@@ -440,11 +505,50 @@ if __name__ == "__main__":
         json.dump(length_10, file)
     with open('../' + paths.CHAINS_10_PLUS, 'w') as file:
         json.dump(length_10_plus, file)
+    
+    # For groups   
+    # Get length values from alphabetical groups
+    length_values = [entry['length'] for entry in groups.values()]
+
+    # Count the occurrences of each length value
+    length_counts = Counter(length_values)
+
+    # Create a dictionary to hold the counts of lengths less than or equal to 20
+    length_counts = sorted(length_counts.items())[:8]
+
+    # Get count for lengths greater than 20
+    greater_than_10_count = sum(1 for length in length_values if isinstance(length, int) and length > 10)
+
+    # Total number
+    print(f"Total number of the subject groups: {len(groups)}\n\n")
+    
+    # Print the table
+    print("Length    | Number of Instances")
+    print("-----------------------------")
+    for length, count in length_counts:
+        print(f"{length:<9} | {count:<18}")
+    # Print count for lengths greater than 20
+    if greater_than_10_count > 0:
+        print(">10" + " "*7 + f"| {greater_than_10_count:<18}")
                     
+# Print distribution for len or groups and the chains -> to compare the reults
+
+print_chains(chains, 'Cabot Oil & Gas Marketing Corporation', '../' + paths.CHECK_CHAINS + 'checking-chain.txt')
+print_groups(ordered_groups, 'Cabot Oil & Gas Marketing Corporation', '../' + paths.CHECK_CHAINS + 'checking-ordered-group.txt')
+
+for key, value in length_10_plus.items():
+    print(extract_heading_name(key), ' ', ordered_groups[extract_heading_name(key)]['length'], ': ', len(value))
+
+# <no subject>  -> strange chain, it is wrong!!
+
+# idea: run again longer chains to get a proper subchains: 'apb checkout' for inctance
 
 
-print_chains(chains, 'One more try', '../' + paths.CHECK_CHAINS + 'checking-chain.txt')
-print_groups(ordered_groups, 'One more try', '../' + paths.CHECK_CHAINS + 'checking-ordered-group.txt')
+# Redo:
+# 'apb checkout' -> divide
+# 'A Christmas Tasters' -> take the whole order group
+# 'Cabot Oil & Gas Marketing Corporation' ok
+#longest check
 
 
 with open('../'+paths.CHAINS_2, 'r') as file:
@@ -453,3 +557,15 @@ for i, key in enumerate(list(ordered_groups.keys())[:60]):
     print_groups(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'ordered-group-{i+1}.txt')
 for i, key in enumerate(list(chains.keys())[:30]):
     print_chains(chains, key, '../'+paths.CHECK_CHAINS+f'chain-{i+1}.txt')
+    
+    
+extract_heading_name()
+
+chains['2- SURVEY/INFORMATION EMAIL']['chains'][0]
+
+
+add_clean_text(df.loc[chains['2- SURVEY/INFORMATION EMAIL']['chains'][0][0], 'content'])  ==  add_clean_text(df.loc[chains['2- SURVEY/INFORMATION EMAIL']['chains'][0][1], 'content'])
+with open('../' + paths.CHECK_CHAINS + '1.txt', 'w') as file:
+    file.write(add_clean_text(df.loc[chains['2- SURVEY/INFORMATION EMAIL']['chains'][0][0], 'content']))
+with open('../' + paths.CHECK_CHAINS + '2.txt', 'w') as file:
+    file.write(add_clean_text(df.loc[chains['2- SURVEY/INFORMATION EMAIL']['chains'][0][1], 'content']))
