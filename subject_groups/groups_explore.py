@@ -62,7 +62,7 @@ def process_subject_groups():
     greater_than_20_count = sum(1 for length in length_values if isinstance(length, int) and length > 20)
 
     # Total number
-    print(f"Total number of the subject groups: {len(groups)}\n\n")
+    print(f"\nTotal number of the subject groups: {len(groups)}\n\n")
     
     # Print the table
     print("Length    | Number of Instances")
@@ -73,10 +73,17 @@ def process_subject_groups():
     # Print count for lengths greater than 20
     if greater_than_20_count > 0:
         print(">20" + " "*7 + f"| {greater_than_20_count:<18}")
+        
 
     # Filter groups for further analysis
+    filtered_groups = {key: value for key, value in alphabetical_groups.items() if value['length'] == 1}
+    print(f"\nNumber of groups with the size 1: {len(filtered_groups)}")
+
+    with open(paths.SUBJECT_GROUPS_1, 'w') as file:
+        json.dump(filtered_groups, file)
+     
     filtered_groups = {key: value for key, value in alphabetical_groups.items() if value['length'] > 1}
-    print(f"\nNumber of groups bigger than 1: {len(filtered_groups)}")
+    print(f"Number of groups bigger than 1: {len(filtered_groups)}")
 
     with open(paths.SUBJECT_GROUPS_2_PLUS, 'w') as file:
         json.dump(filtered_groups, file)

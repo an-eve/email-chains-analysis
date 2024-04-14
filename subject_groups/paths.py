@@ -9,6 +9,7 @@ ALPHABETICAL_SUBJECT_GROUPS = 'data/subject-groups/alphabetical_groups.json'
 SUBJECT_GROUPS_TIME = 'data/subject-groups/groups-time.json'
 ALPHABETICAL_SUBJECT_GROUPS_TIME = 'data/subject-groups/alphabetical_groups-time.json'
 
+SUBJECT_GROUPS_1 = 'data/subject-groups/groups_1.json'
 SUBJECT_GROUPS_2 = 'data/subject-groups/groups_2.json'
 SUBJECT_GROUPS_2_PLUS = 'data/subject-groups/groups_2_plus.json'
 SUBJECT_GROUPS_3 = 'data/subject-groups/groups_3.json'

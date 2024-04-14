@@ -35,6 +35,7 @@ def split_email_addresses(line):
         addrs = frozenset()
     return addrs
 
+# Function to compute union of two columns in a DataFrame row
 def compute_union(row, column1, column2):
     return row[column1].union(row[column2])
 
@@ -79,7 +80,7 @@ def contains_specific_phrases(text):
 
 
 def add_clean_text(text):
-    '''Cleans the text content for later processing, removing unnecessary characters and spaces.
+    '''Cleans the text content for later processing, removing unnecessary characters, phrases and spaces.
     
     Args:
     - text (str): Text content to be cleaned.
@@ -92,13 +93,21 @@ def add_clean_text(text):
     text = re.sub(r'=09', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'=018', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'=01', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'3D', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'3D', '', text, flags=re.IGNORECASE)
     
     text = re.sub(r'\?', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'=\n', '', text, flags=re.IGNORECASE)
     
+    # Emails
+    email_pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"  
+    text = re.sub(email_pattern, '', text, flags=re.IGNORECASE)
+    text = re.sub(r'mailto:', '', text, flags=re.IGNORECASE)
+    
+    
     # Remove the phrase "Please respond to" from each line
     text = re.sub(r'Please respond to', '', text, flags=re.IGNORECASE)
+    # URLs
+    text = re.sub(r"(https?://[^<>|\s]+)", " ", text, flags = re.IGNORECASE)
     # Remove lines similar to "- filename.extension"
     text = re.sub(r'- .*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf|vcf|tif)', '', text, flags=re.IGNORECASE)  
     # Remove document names enclosed within double angle brackets
@@ -120,7 +129,11 @@ def add_clean_text(text):
     text = re.sub(r'\*', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'~', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'-', ' ', text, flags=re.IGNORECASE)
-    
+
+    text = re.sub(r'[\[\]]', '', text)
+    text = re.sub(r'[\(\)]', '', text)
+    text = re.sub(r'\'', ' ', text, flags=re.IGNORECASE)  
+    text = re.sub(r',', '', text, flags=re.IGNORECASE)
     text = re.sub(r'>', '', text, flags=re.IGNORECASE)
     text = re.sub(r'<', '', text, flags=re.IGNORECASE)
     text = re.sub(r'\;', '', text, flags=re.IGNORECASE)   
@@ -161,19 +174,21 @@ def print_text_from_files(dictionary, key, combined_path):
 
 
 if __name__ == "__main__":
-    with open("../"+paths.SUBJECT_GROUPS_2, 'r') as file:
-        groups = json.load(file)
+    with open(paths.SUBJECT_GROUPS_1, 'r') as file:
+        groups_1 = json.load(file)
+    with open(paths.SUBJECT_GROUPS_2, 'r') as file:
+        groups_2 = json.load(file)
+
+    print(f"Number of the subject groups of the length 1: {len(groups_1)}")       
+    print(f"Number of the subject groups of the length 2: {len(groups_2)}")
         
-    print(f"Number of the subject groups of the length 2: {len(groups)}")
-        
-    df = pd.read_csv("../"+paths.DATA_CLEAN_SUBJECT)
-    
+    df = pd.read_csv(paths.DATA_CLEAN_SUBJECT)
     # File name set as index
     df.set_index('file', inplace=True)
     
     # Count the number of NaNs for each column
     nan_counts = df.isna().sum()
-    print(f"Number of NaNs for every column:\n{nan_counts}")
+    print(f"\nNumber of NaNs for every column:\n{nan_counts}")
     df['content-clean'] = df['content-clean'].fillna('')
 
     # Split email addresses in the DataFrame
@@ -182,36 +197,43 @@ if __name__ == "__main__":
     df['Cc'] = df['Cc'].map(split_email_addresses)
     df['Bcc'] = df['Bcc'].map(split_email_addresses)
 
+    # Compute union of 'To' and 'Cc' columns
     df['recepients'] = df.apply(lambda row: compute_union(row, 'To', 'Cc').union(row['Bcc']), axis=1)
     df['participants'] = df.apply(lambda row: compute_union(row, 'From', 'recepients'), axis=1)
-
+   
+    # Check for 'Re:' and 'Fwd:' prefixes in 'Subject' column
     df['re'] = df['Subject'].apply(has_re_prefix)
     df['fwd'] = df['Subject'].apply(has_fwd_prefix)
 
-    ordered_groups = groups.copy()
+    ordered_groups = groups_2.copy()
     for key, value in ordered_groups.items():
         ordered_groups[key]['ids'] = sorted(ordered_groups[key]['ids'], key=lambda x: df.loc[x, 'date-timestamp'])
 
-    # Add some to the length 1 !!!!!!!!!
     # Remove raw html emails
-    for key, value in groups.items():
+    for key, value in groups_2.items():
         if '</html>' in df.loc[ordered_groups[key]['ids'][0], 'content'] or '</html>' in df.loc[ordered_groups[key]['ids'][1], 'content']:
             del ordered_groups[key]
    
-
-    chains = ordered_groups.copy()
-    new = []
+    chains_1 = {}
+    for key, value in groups_1.items():
+        chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"]
+    
+    chains_2 = ordered_groups.copy()
     for key, value in ordered_groups.items():
         # Time period regulation
         if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*30*2:
-            del chains[key]
+            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][0]
+            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][1]
+            del chains_2[key]
             continue      
         # Re/Fwd neither in the first email, nor in the second (follow-ups are difficult 
         # to detect, they could be mixed up with 2 separate emails with the same subject)
         if not (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][1], 're'] or df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][1], 'fwd']):
             # Shorter time to make sure it's a chain
             if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*7:
-                del chains[key]
+                chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][0]
+                chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][1]
+                del chains_2[key]
                 continue
             # Forward and (maybe?) Reply
             if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and (df.loc[value['ids'][0], 'content-clean'] in df.loc[value['ids'][1], 'content-clean']) and contains_specific_phrases(df.loc[value['ids'][1], 'content-clean']):
@@ -220,7 +242,9 @@ if __name__ == "__main__":
             # Reply or Forward
             if df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])):
                 continue
-            del chains[key]
+            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][0]
+            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][1]
+            del chains_2[key]
         # Re/Fwd in the second email
         elif (df.loc[value['ids'][1], 'fwd'] or df.loc[value['ids'][1], 're']):
             # Reply or Forward
@@ -235,16 +259,21 @@ if __name__ == "__main__":
                 if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
                     # Avoiding time errors emails
                     if (abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp'])/(60*60)) % 1 == 0:
-                        if (add_clean_text(df.loc[value['ids'][0], 'content-clean']) == add_clean_text(df.loc[value['ids'][1], 'content-clean'])) or (df.loc[value['ids'][0], 'Content-Type'] != df.loc[value['ids'][1], 'Content-Type']):
-                            del chains[key]
+                        if (add_clean_text(df.loc[value['ids'][0], 'content']) == add_clean_text(df.loc[value['ids'][1], 'content'])) or (df.loc[value['ids'][0], 'Content-Type'] != df.loc[value['ids'][1], 'Content-Type']):
+                            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][0]
+                            del chains_2[key]
                             continue  
                     continue
-            del chains[key]  
+            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][0]
+            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][1]
+            del chains_2[key]  
         # Wrong Timing
         elif (df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][0], 're']):
             # Shorter time to make sure it's a chain
             if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*8:
-                del chains[key]
+                chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][0]
+                chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][1]
+                del chains_2[key]
                 continue
             # Reply or Forward
             if df.loc[value['ids'][0], 'From'].intersection(df.loc[value['ids'][1], 'recepients'].difference(df.loc[value['ids'][1], 'From'])):
@@ -256,114 +285,41 @@ if __name__ == "__main__":
             # Follow-up
             if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and ((df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])).intersection(df.loc[value['ids'][1], 'recepients'].difference(df.loc[value['ids'][1], 'From']))):
                 if df.loc[value['ids'][0], 'content-clean'] != df.loc[value['ids'][1], 'content-clean']:
+                    # Avoiding time errors emails
+                    if (abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp'])/(60*60)) % 1 == 0:
+                        if (add_clean_text(df.loc[value['ids'][0], 'content']) == add_clean_text(df.loc[value['ids'][1], 'content'])) or (df.loc[value['ids'][0], 'Content-Type'] != df.loc[value['ids'][1], 'Content-Type']):
+                            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][0]
+                            del chains_2[key]
+                            continue  
                     continue
-            del chains[key]  
+            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][0]
+            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][1]
+            del chains_2[key]  
         else:
-            del chains[key]
-            
-            
-            
-
-            
-    new = []
-    cleaned =[]
-    for key, value in ordered_groups.items():
-        if (df.loc[value['ids'][0], 'From'] == df.loc[value['ids'][1], 'From']) and (df.loc[value['ids'][1], 'recepients'] ==df.loc[value['ids'][0], 'recepients']):
-                if (abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp'])/(60*60)) % 1 == 0:
-                    new.append(key)
-                    if (add_clean_text(df.loc[value['ids'][0], 'content']) != add_clean_text(df.loc[value['ids'][1], 'content'])):
-                        cleaned.append(key)
-                        
-    elem=cleaned[8]
-    with open('../' + paths.CHECK_CHAINS + '1.txt', 'w') as file:
-        file.write(add_clean_text(df.loc[ordered_groups[elem]['ids'][0], 'content']))
-    with open('../' + paths.CHECK_CHAINS + '2.txt', 'w') as file:
-        file.write(add_clean_text(df.loc[ordered_groups[elem]['ids'][1], 'content']))
+            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][0]
+            chains_1[f"[{len(chains_1)+1}] " + key] = value["ids"][1]
+            del chains_2[key]
         
-    with open('../' + paths.CHECK_CHAINS + '01.txt', 'w') as file:
-        file.write(df.loc[ordered_groups[elem]['ids'][0], 'content'])
-    with open('../' + paths.CHECK_CHAINS + '02.txt', 'w') as file:
-        file.write(df.loc[ordered_groups[elem]['ids'][1], 'content'])
+    print(f"\nNumber of chains with the length 1: {len(chains_1)}")
+    print(f"Number of chains with the length 2: {len(chains_2)}")
+    
+    chains_2_modified = {}
+    for key, value in chains_2.items():
+        chains_2_modified[f"[{len(chains_2_modified)+1}] " + key] = value["ids"]
         
-
-                         
-
-    print(f"\nNumber of chains with the length 2: {len(chains)}")
-    
-    # Some data exploration 
-    # Make sense for timing
-    s=0
-    new =[]
-    for key, value in groups.items():
-        if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) > (60**2)*24*30*2:
-            if (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][1], 're'] or df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][1], 'fwd']):
-                new.append(key)
-                s += 1
-    s
-    for i, key in enumerate(new):
-        print_text_from_files(groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
-    
- 
-     # no Re or Fwd for the first, but re or fwd for the second
-    s=0
-    for key, value in groups.items():
-        if (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][0], 'fwd']) and not(df.loc[value['ids'][1], 're'] or df.loc[value['ids'][1], 'fwd']):
-            s += 1
-    s #few instances, 800, so not important
-    
-    # no Re or Fwd at all
-    s=0
-    for key, value in groups.items():
-        if not (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][1], 're'] or df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][1], 'fwd']):
-            s += 1
-    s
-    # still Looks like reply
-    s=0
-    new =[]
-    for key, value in ordered_groups.items():
-        if not (df.loc[value['ids'][0], 're'] or df.loc[value['ids'][1], 're'] or df.loc[value['ids'][0], 'fwd'] or df.loc[value['ids'][1], 'fwd']):
-            if df.loc[value['ids'][1], 'From'].intersection(df.loc[value['ids'][0], 'recepients'].difference(df.loc[value['ids'][0], 'From'])):
-                # Shortertime to make sure
-                if abs(df.loc[value['ids'][0], 'date-timestamp'] - df.loc[value['ids'][1], 'date-timestamp']) < (60**2)*24*7:
-                    s += 1
-                    new.append(key)
-        # Cannot check follow up here, impossible to distincct from repeating email
-        # fwd difficult, it could be the same person receiving one, sending another email
-    s
-    for i, key in enumerate(new):
-        print_text_from_files(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
-    
-    
-    # Number of fathters without Re or Fwd
-    fathers_proper = len(chains)
-    for chain in chains.values():
-        fathers_proper -= int(has_re_prefix(df.loc[chain['ids'][0], 'Subject']) or has_fwd_prefix(df.loc[chain['ids'][0], 'Subject']))
-    print(f"\n Percentage of fathers without Re or Fwd: {fathers_proper/len(chains)*100:.1f} %")
-
-
-
-
+    # Save chains to JSON files
+    with open(paths.CHAINS_1, 'w') as file:
+        json.dump(chains_1, file)  
     with open(paths.CHAINS_2, 'w') as file:
-        json.dump(chains, file)
+        json.dump(chains_2_modified, file)
 
 
 """
 with open('../'+paths.CHAINS_2, 'r') as file:
-        chains = json.load(file)
-for i, key in enumerate(list(chains.keys())[:100]):
-    print_text_from_files(chains, key, '../'+paths.CHECK_CHAINS+f'chain_{i+1}')
+        chains_2 = json.load(file)
+for i, key in enumerate(list(chains_2.keys())[:100]):
+    print_text_from_files(chains_2, key, '../' + paths.CHECK_CHAINS + f'chain_{i+1}')
 """
-
-for i, key in enumerate(new[:200]):
-    print_text_from_files(groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
-    
-random_new = random.sample(new, 100)
-for i, key in enumerate(random_new):
-    print_text_from_files(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
-    
-for i, key in enumerate(new):
-    print_text_from_files(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'aa_{i+1}')
-
 
 
 

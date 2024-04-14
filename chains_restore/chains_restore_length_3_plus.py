@@ -533,8 +533,8 @@ if __name__ == "__main__":
                     
 # Print distribution for len or groups and the chains -> to compare the reults
 
-print_chains(chains, 'Cabot Oil & Gas Marketing Corporation', '../' + paths.CHECK_CHAINS + 'checking-chain.txt')
-print_groups(ordered_groups, 'Cabot Oil & Gas Marketing Corporation', '../' + paths.CHECK_CHAINS + 'checking-ordered-group.txt')
+print_chains(chains, 'hi!', '../' + paths.CHECK_CHAINS + 'checking-chain.txt')
+print_groups(ordered_groups, 'hi!', '../' + paths.CHECK_CHAINS + 'checking-ordered-group.txt')
 
 for key, value in length_10_plus.items():
     print(extract_heading_name(key), ' ', ordered_groups[extract_heading_name(key)]['length'], ': ', len(value))
@@ -548,6 +548,7 @@ for key, value in length_10_plus.items():
 # 'apb checkout' -> divide
 # 'A Christmas Tasters' -> take the whole order group
 # 'Cabot Oil & Gas Marketing Corporation' ok
+# 'hi!' ok
 #longest check
 
 
