@@ -107,7 +107,7 @@ def add_clean_text(text):
     text = re.sub(r'<Embedded Picture \(Device Independent Bitmap\)>', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'<Embedded Picture \(Metafile\)>', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'<Embedded >', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded Picture (Device Independent Bitmap)>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Picture \(Device Independent Bitmap\)>', ' ', text, flags=re.IGNORECASE)
     
     # Remove the symbols
     text = re.sub(r'_!', ' ', text, flags=re.IGNORECASE)
@@ -210,6 +210,12 @@ def extract_heading_name(heading):
 
 
 if __name__ == "__main__":
+    
+    with open('../'+paths.CHAINS_1, 'r') as file:
+        chains_1 = json.load(file)
+    with open('../'+paths.CHAINS_2, 'r') as file:
+        chains_2 = json.load(file)
+        
     with open('../'+paths.SUBJECT_GROUPS_3_PLUS, 'r') as file:
         groups = json.load(file)
         
@@ -226,15 +232,16 @@ if __name__ == "__main__":
     df['To'] = df['To'].map(split_email_addresses)
     df['Cc'] = df['Cc'].map(split_email_addresses)
     df['Bcc'] = df['Bcc'].map(split_email_addresses)
-
+    
+    # Compute union of 'To' and 'Cc' columns
     df['recepients'] = df.apply(lambda row: compute_union(row, 'To', 'Cc').union(row['Bcc']), axis=1)
     df['participants'] = df.apply(lambda row: compute_union(row, 'From', 'recepients'), axis=1)
-
+    
+    # Check for 'Re:' and 'Fwd:' prefixes in 'Subject' column
     df['re'] = df['Subject'].apply(has_re_prefix)
     df['fwd'] = df['Subject'].apply(has_fwd_prefix)
 
     ordered_groups = groups.copy()
-    
     for key, value in groups.items():
         (ordered_groups[key]['ids']).sort(key=lambda x: df.loc[x, 'date-timestamp'])
     
@@ -304,13 +311,12 @@ if __name__ == "__main__":
             
   
     chains = {}
-    new = []
     for key, value in list(ordered_groups.items()):
         chains[key]={}
         chains[key]['length'] = []
         chains[key]['chains'] = []
         emails_list = (ordered_groups[key]['ids']).copy()
-        while len(emails_list) > 1:
+        while len(emails_list) > 0:
             candidate = []
             candidate.append(emails_list.pop(0))
             emails_list_cpy = emails_list.copy()
@@ -364,6 +370,7 @@ if __name__ == "__main__":
                                 # Avoiding time errors emails
                                 if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
                                     if (add_clean_text(df.loc[item, 'content']) == add_clean_text(df.loc[email, 'content'])) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
+                                        emails_list.remove(email)
                                         break 
                                 candidate.append(email)
                                 emails_list.remove(email)
@@ -397,15 +404,15 @@ if __name__ == "__main__":
                                 # Avoiding time errors emails
                                 if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
                                     if (add_clean_text(df.loc[item, 'content']) == add_clean_text(df.loc[email, 'content'])) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
+                                        emails_list.remove(email)
                                         break  
                                 candidate.append(email)
                                 emails_list.remove(email)
                                 break
                     else:
                         continue             
-            if len(candidate) > 1:
-                chains[key]['length'].append(len(candidate))
-                chains[key]['chains'].append(candidate)
+            chains[key]['length'].append(len(candidate))
+            chains[key]['chains'].append(candidate)
         if len(chains[key]['chains']) == 0:
             del chains[key]                      
                     
@@ -422,10 +429,10 @@ if __name__ == "__main__":
             else:
                 length_distribution[length] = 1
 
-    print("Total number of chains:", total_chains)
+    print("Total number of chains:", total_chains + len(chains_1) + len(chains_2))
 
     length_counts = Counter(length_distribution)
-    length_counts = sorted(length_counts.items())[:9]
+    length_counts = sorted(length_counts.items())[:10]
 
     greater_than_10_count = sum(length_number for length, length_number in length_distribution.items() if isinstance(length, int) and length > 10)
 
@@ -433,21 +440,19 @@ if __name__ == "__main__":
     print("Length    | Number of Instances")
     print("-----------------------------")
     for length, count in length_counts:
-        print(f"{length:<9} | {count:<18}")
+        if length == 1:
+            print(f"{length:<9} | {count + len(chains_1):<18}")
+        elif length == 2:
+            print(f"{length:<9} | {count + len(chains_2):<18}") 
+        else:
+            print(f"{length:<9} | {count:<18}")
+            
     if greater_than_10_count > 0:
         print(">10" + " "*7 + f"| {greater_than_10_count:<18}")
         
-    # Number of fathters without Re or Fwd
-    fathers_proper = total_chains
-    for topic, info in chains.items():
-        chains_list = info['chains']
-        for chain in chains_list:
-            fathers_proper -= int(has_re_prefix(df.loc[chain[0], 'Subject']) or has_fwd_prefix(df.loc[chain[0], 'Subject']))
-    print(f"\n Percentage of fathers without Re or Fwd: {fathers_proper/total_chains*100:.1f} %")
-
-        
-    
-    # Separate dictionaries for lengths 2 to 10
+    # Separate dictionaries for different lengths
+    length_1 = {}
+    length_2 = {}
     length_2 = {}
     length_3 = {}
     length_4 = {}
@@ -464,8 +469,10 @@ if __name__ == "__main__":
         length_list = info['length']
         chains_list = info['chains']
         for ind, length in enumerate(length_list):
-            if length == 2:
-                length_2[f"[{len(length_2)+1}] " + topic] = chains_list[ind]
+            if length == 1:
+                chains_1[f"[{len(chains_1)+1}] " + topic] = chains_list[ind]
+            elif length == 2:
+                chains_2[f"[{len(chains_2)+1}] " + topic] = chains_list[ind]
             elif length == 3:
                 length_3[f"[{len(length_3)+1}] " + topic] = chains_list[ind]
             elif length == 4:
@@ -485,8 +492,14 @@ if __name__ == "__main__":
             else:
                 length_10_plus[f"[{len(length_10_plus)+1}] " + topic] = chains_list[ind]
 
-    with open('../' + paths.CHAINS_2_ADD, 'w') as file:
-        json.dump(length_2, file)
+    # Sort by length
+    length_10_plus = dict(sorted(length_10_plus.items(), key=lambda x: len(x[1]), reverse=True))
+    
+
+    with open('../' + paths.CHAINS_1_NEW, 'w') as file:
+        json.dump(chains_1, file)
+    with open('../' + paths.CHAINS_2_NEW, 'w') as file:
+        json.dump(chains_2, file)
     with open('../' + paths.CHAINS_3, 'w') as file:
         json.dump(length_3, file)
     with open('../' + paths.CHAINS_4, 'w') as file:
@@ -506,7 +519,9 @@ if __name__ == "__main__":
     with open('../' + paths.CHAINS_10_PLUS, 'w') as file:
         json.dump(length_10_plus, file)
     
-    # For groups   
+    # For groups to compare with chains  
+    with open('../'+paths.SUBJECT_GROUPS, 'r') as file:
+        groups = json.load(file)
     # Get length values from alphabetical groups
     length_values = [entry['length'] for entry in groups.values()]
 
@@ -514,16 +529,17 @@ if __name__ == "__main__":
     length_counts = Counter(length_values)
 
     # Create a dictionary to hold the counts of lengths less than or equal to 20
-    length_counts = sorted(length_counts.items())[:8]
+    length_counts = sorted(length_counts.items())[:10]
 
     # Get count for lengths greater than 20
     greater_than_10_count = sum(1 for length in length_values if isinstance(length, int) and length > 10)
 
     # Total number
-    print(f"Total number of the subject groups: {len(groups)}\n\n")
+    print(f"\nTo compare: \nTotal number of the subject groups: {len(groups)}\n\n")
     
     # Print the table
-    print("Length    | Number of Instances")
+    print("Size distribution:")
+    print("Size      | Number of Instances")
     print("-----------------------------")
     for length, count in length_counts:
         print(f"{length:<9} | {count:<18}")
@@ -531,42 +547,41 @@ if __name__ == "__main__":
     if greater_than_10_count > 0:
         print(">10" + " "*7 + f"| {greater_than_10_count:<18}")
                     
-# Print distribution for len or groups and the chains -> to compare the reults
 
-print_chains(chains, 'hi!', '../' + paths.CHECK_CHAINS + 'checking-chain.txt')
-print_groups(ordered_groups, 'hi!', '../' + paths.CHECK_CHAINS + 'checking-ordered-group.txt')
+# This exploration I performed to manually correct the automatic results
 
+# Exploring the long chains
+# Print distribution for lengths of the groups and their corresponding  chains to compare the results
 for key, value in length_10_plus.items():
     print(extract_heading_name(key), ' ', ordered_groups[extract_heading_name(key)]['length'], ': ', len(value))
 
-# <no subject>  -> strange chain, it is wrong!!
+print_chains(chains, "WorldCom Calling Card", '../' + paths.CHECK_CHAINS + 'checking-chain.txt')
+print_groups(ordered_groups, "WorldCom Calling Card", '../' + paths.CHECK_CHAINS + 'checking-ordered-group.txt')
 
-# idea: run again longer chains to get a proper subchains: 'apb checkout' for inctance
+# Results:
+# Rebuild:
+# 'apb checkout', 'natsource checkout', 'apb', 'natsource', 'tfs' -> text of one should be in another to build the chain, 
+# father without RE and FWD, child with RE or FWD
+#
+# <no subject>  -> to remove
+# 
+# 'A Christmas Tasters', 'Enfolio Contract with CPS', -> take the whole order group instead of the chains result
+#
+# 'Centana', 'NETCO', "Master Netting Agreement Assignments", "WorldCom Calling Card" -> 1-2 days time gap instead of 2 months, father without RE and FWD, child with RE or FWD
+#
+# 'Cabot Oil & Gas Marketing Corporation', -> everything is ok
+# 'One more try', 'Thanksgiving', 'Organization Announcement', 'How good is Temptation Island 2' -> everything is ok
+# 'hi!', "I'm Leaving Enron"  -> everything is ok
+
+# Same for the length of 10
+for key, value in length_10.items():
+    print(extract_heading_name(key), ' ', ordered_groups[extract_heading_name(key)]['length'], ': ', len(value))
 
 
-# Redo:
-# 'apb checkout' -> divide
-# 'A Christmas Tasters' -> take the whole order group
-# 'Cabot Oil & Gas Marketing Corporation' ok
-# 'hi!' ok
-#longest check
 
-
-with open('../'+paths.CHAINS_2, 'r') as file:
-        chains = json.load(file)
 for i, key in enumerate(list(ordered_groups.keys())[:60]):
     print_groups(ordered_groups, key, '../'+paths.CHECK_CHAINS+f'ordered-group-{i+1}.txt')
 for i, key in enumerate(list(chains.keys())[:30]):
     print_chains(chains, key, '../'+paths.CHECK_CHAINS+f'chain-{i+1}.txt')
     
-    
-extract_heading_name()
 
-chains['2- SURVEY/INFORMATION EMAIL']['chains'][0]
-
-
-add_clean_text(df.loc[chains['2- SURVEY/INFORMATION EMAIL']['chains'][0][0], 'content'])  ==  add_clean_text(df.loc[chains['2- SURVEY/INFORMATION EMAIL']['chains'][0][1], 'content'])
-with open('../' + paths.CHECK_CHAINS + '1.txt', 'w') as file:
-    file.write(add_clean_text(df.loc[chains['2- SURVEY/INFORMATION EMAIL']['chains'][0][0], 'content']))
-with open('../' + paths.CHECK_CHAINS + '2.txt', 'w') as file:
-    file.write(add_clean_text(df.loc[chains['2- SURVEY/INFORMATION EMAIL']['chains'][0][1], 'content']))
