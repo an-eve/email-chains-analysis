@@ -120,7 +120,7 @@ def add_clean_text(text):
     text = re.sub(r'<Embedded Picture \(Device Independent Bitmap\)>', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'<Embedded Picture \(Metafile\)>', ' ', text, flags=re.IGNORECASE)
     text = re.sub(r'<Embedded >', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded Picture (Device Independent Bitmap)>', ' ', text, flags=re.IGNORECASE)
+    text = re.sub(r'<Embedded Picture \(Device Independent Bitmap\)>', ' ', text, flags=re.IGNORECASE)
     
     # Remove the symbols
     text = re.sub(r'_!', ' ', text, flags=re.IGNORECASE)

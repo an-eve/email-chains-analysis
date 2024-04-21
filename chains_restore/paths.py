@@ -1,4 +1,5 @@
 DATA_CLEAN_SUBJECT = 'data/clean-mails-data.csv'
+DATA_CLEAN_SUBJECT_INF = 'data/clean-mails-data-inf.csv'
 DATA_CLEAN_EMPTY_SUBJECT = 'data/clean-empty-subject-mails-data.csv'
 
 DATA_CLEAN_SUBJECT_TIME = 'data/clean-time-mails-data.csv'
@@ -26,8 +27,9 @@ ORDERED_GROUPS = 'data/chains/ordered_groups.json'
 CHAINS = 'data/chains/chains.json'
 
 CHAINS_1 = 'data/chains/chains_1.json'
+CHAINS_1_NEW = 'data/chains/chains_1_new.json'
 CHAINS_2 = 'data/chains/chains_2.json'
-CHAINS_2_ADD = 'data/chains/chains_2_add.json'
+CHAINS_2_NEW = 'data/chains/chains_2_new.json'
 CHAINS_3 = 'data/chains/chains_3.json'
 CHAINS_4 = 'data/chains/chains_4.json'
 CHAINS_5 = 'data/chains/chains_5.json'

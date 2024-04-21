@@ -66,76 +66,6 @@ def has_fwd_prefix(string):
     match = re.search(prefix_pattern, string)
     return bool(match)
         
-def add_clean_text(text):
-    '''Cleans the text content for later processing, removing unnecessary characters and spaces.
-    
-    Args:
-    - text (str): Text content to be cleaned.
-    
-    Returns:
-    - str: Cleaned text content.
-    '''
-    # Remove the symbols
-    text = re.sub(r'=20', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'=09', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'=018', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'=01', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'3D', '', text, flags=re.IGNORECASE)
-    
-    text = re.sub(r'\?', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'=\n', '', text, flags=re.IGNORECASE)
-    
-    # Emails
-    email_pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"  
-    text = re.sub(email_pattern, '', text, flags=re.IGNORECASE)
-    text = re.sub(r'mailto:', '', text, flags=re.IGNORECASE)
-    
-    
-    # Remove the phrase "Please respond to" from each line
-    text = re.sub(r'Please respond to', '', text, flags=re.IGNORECASE)
-    # URLs
-    text = re.sub(r"(https?://[^<>|\s]+)", " ", text, flags = re.IGNORECASE)
-    # Remove lines similar to "- filename.extension"
-    text = re.sub(r'- .*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf|vcf|tif)', '', text, flags=re.IGNORECASE)  
-    # Remove document names enclosed within double angle brackets
-    text = re.sub(r'<<.*?\.(doc|png|xlsx|jpeg|jpg|ppt|xls|wpd|pdf|vcf|tif)>>', '', text, flags=re.IGNORECASE)   
-    
-    # Remove <Embedded StdOleLink>, <Embedded Picture (Metafile)>, ect.
-    text = re.sub(r'<Embedded StdOleLink>', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'\[IMAGE\]', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded Microsoft Excel Worksheet>', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded Picture \(Device Independent Bitmap\)>', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded Picture \(Metafile\)>', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded >', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'<Embedded Picture \(Device Independent Bitmap\)>', ' ', text, flags=re.IGNORECASE)
-    
-    # Remove the symbols
-    text = re.sub(r'_!', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'!_', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'_', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'\*', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'~', ' ', text, flags=re.IGNORECASE)
-    text = re.sub(r'-', ' ', text, flags=re.IGNORECASE)
-
-    text = re.sub(r'[\[\]]', '', text)
-    text = re.sub(r'[\(\)]', '', text)
-    text = re.sub(r'\'', ' ', text, flags=re.IGNORECASE)  
-    text = re.sub(r',', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'>', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'<', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\;', '', text, flags=re.IGNORECASE)   
-    text = re.sub(r'\+', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'"', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'&', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'=', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'=', '', text, flags=re.IGNORECASE)
-
-    # Clean up other unnecessary characters and spaces
-    text = re.sub(r'[\n\t]+', ' ', text)
-    text = re.sub(r'\s{2,}', ' ', text)
-    text = text.strip()
-    
-    return text.lower()
 
 def contains_specific_phrases(text):
     '''Checks if the text contains specific phrases case-insensitively using regular expressions.
@@ -219,7 +149,9 @@ if __name__ == "__main__":
     with open('../'+paths.SUBJECT_GROUPS_3_PLUS, 'r') as file:
         groups = json.load(file)
         
-    df = pd.read_csv('../'+paths.DATA_CLEAN_SUBJECT)
+    df = pd.read_csv('../'+paths.DATA_CLEAN_SUBJECT_INF)
+    
+    # File path is the index
     df.set_index('file', inplace=True)
     
     # Count the number of NaNs for each column
@@ -240,7 +172,7 @@ if __name__ == "__main__":
     # Check for 'Re:' and 'Fwd:' prefixes in 'Subject' column
     df['re'] = df['Subject'].apply(has_re_prefix)
     df['fwd'] = df['Subject'].apply(has_fwd_prefix)
-
+    
     ordered_groups = groups.copy()
     for key, value in groups.items():
         (ordered_groups[key]['ids']).sort(key=lambda x: df.loc[x, 'date-timestamp'])
@@ -249,6 +181,8 @@ if __name__ == "__main__":
 
     with open('../'+paths.ORDERED_GROUPS, 'w') as file:
         json.dump(ordered_groups, file)
+        
+    len([value['length'] for key, value in ordered_groups.items() if value['length'] > 10])
         
     chains = {}
     for key, value in list(ordered_groups.items()):
@@ -309,7 +243,299 @@ if __name__ == "__main__":
         if len(chains[key]['chains']) == 0:
             del chains[key]      
             
-  
+
+    # First version
+    chains = {}
+    for key, value in list(ordered_groups.items()):
+        chains[key]={}
+        chains[key]['length'] = []
+        chains[key]['chains'] = []
+        emails_list = (ordered_groups[key]['ids']).copy()
+        while len(emails_list) > 0:
+            candidate = []
+            candidate.append(emails_list.pop(0))
+            emails_list_cpy = emails_list.copy()
+            for email in emails_list_cpy:
+                candidate_cpy = candidate.copy()
+                # Avoiding time errors emails
+                time_error = False
+                """
+                for item in candidate_cpy:
+                    if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
+                        if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
+                            if (add_clean_text(df.loc[item, 'content']) == add_clean_text(df.loc[email, 'content'])) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
+                                emails_list.remove(email)
+                                time_error = True
+                                break 
+                """
+                if not time_error:
+                    for item in candidate_cpy:
+                        # Time period regulation
+                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*30*1:
+                            continue 
+                        # Re/Fwd neither in the first email, nor in the second (follow-ups are difficult 
+                        # to detect, they could be mixed up with 2 separate emails with the same subject)
+                        if not (df.loc[email, 're'] or df.loc[item, 're'] or df.loc[email, 'fwd'] or df.loc[item, 'fwd']):
+                            # Shorter time to make sure it's a chain
+                            if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*7:
+                                continue
+                            # Forward 
+                            if (df.loc[item, 'From'] == df.loc[email, 'From']) and (df.loc[item, 'content-extra-clean'] in df.loc[email, 'content-extra-clean']):
+                                if df.loc[item, 'content-extra-clean'] != df.loc[email, 'content-extra-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                            # Reply or Forward
+                            if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                                if df.loc[item, 'content-extra-clean'] in df.loc[email, 'content-extra-clean']:
+                                    if df.loc[item, 'content-extra-clean'] != df.loc[email, 'content-extra-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break    
+                        # Re/Fwd in the second email
+                        elif (df.loc[email, 'fwd'] or df.loc[email, 're']):
+                            # All options
+                            if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                                if df.loc[item, 'content-extra-clean'] in df.loc[email, 'content-extra-clean']:
+                                    if df.loc[item, 'content-extra-clean'] != df.loc[email, 'content-extra-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Reply
+                            if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                                if df.loc[item, 'participants'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                            # Forward(1)
+                            """
+                            if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                                if df.loc[email, 'fwd']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                            """
+                            # Forward(2)
+                            if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                                if df.loc[item, 'content-extra-clean'] in df.loc[email, 'content-extra-clean']:
+                                    if df.loc[item, 'content-extra-clean'] != df.loc[email, 'content-extra-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Follow-up 
+                            if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
+                                if df.loc[item, 'content-extra-clean'] in df.loc[email, 'content-extra-clean']:
+                                    if df.loc[item, 'content-extra-clean'] != df.loc[email, 'content-extra-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Follow-up or Forward
+                            if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                                if df.loc[item, 'content-extra-clean'] in df.loc[email, 'content-extra-clean']:
+                                    if df.loc[item, 'content-extra-clean'] != df.loc[email, 'content-extra-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                        # Wrong Timing
+                        elif (df.loc[item, 'fwd'] or df.loc[item, 're']):
+                            # Shorter time to make sure it's a chain
+                            if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24:
+                                continue
+                            # All options
+                            if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                                if df.loc[item, 'content-extra-clean'] != df.loc[email, 'content-extra-clean']:
+                                    if df.loc[email, 'content-extra-clean'] in df.loc[item, 'content-extra-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Reply
+                            if df.loc[email, 'participants'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                                if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                            # Forward(1)
+                            """
+                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                if df.loc[item, 'fwd']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                            """
+                            # Forward(2)
+                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                if df.loc[item, 'content-extra-clean'] != df.loc[email, 'content-extra-clean']:
+                                    if df.loc[email, 'content-extra-clean'] in df.loc[item, 'content-extra-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Follow-up
+                            if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
+                                if df.loc[item, 'content-extra-clean'] != df.loc[email, 'content-extra-clean']:
+                                    if df.loc[email, 'content-extra-clean'] in df.loc[item, 'content-extra-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Follow-up or Forward
+                            if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                                if df.loc[item, 'content-extra-clean'] != df.loc[email, 'content-extra-clean']:
+                                    if df.loc[email, 'content-extra-clean'] in df.loc[item, 'content-extra-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                        else:
+                            continue             
+            chains[key]['length'].append(len(candidate))
+            chains[key]['chains'].append(candidate)
+        if len(chains[key]['chains']) == 0:
+            del chains[key]                      
+                    
+    # Second version
+    chains = {}
+    for key, value in list(ordered_groups.items()):
+        chains[key]={}
+        chains[key]['length'] = []
+        chains[key]['chains'] = []
+        emails_list = (ordered_groups[key]['ids']).copy()
+        while len(emails_list) > 0:
+            candidate = []
+            candidate.append(emails_list.pop(0))
+            emails_list_cpy = emails_list.copy()
+            for email in emails_list_cpy:
+                candidate_cpy = candidate.copy()
+                # Avoiding time errors emails
+                time_error = False
+                for item in candidate_cpy:
+                    if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
+                        if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
+                            if (add_clean_text(df.loc[item, 'content']) == add_clean_text(df.loc[email, 'content'])) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
+                                emails_list.remove(email)
+                                time_error = True
+                                break 
+                if not time_error:
+                    for item in candidate_cpy:
+                        # Time period regulation
+                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*30*1:
+                            continue 
+                        # Re/Fwd neither in the first email, nor in the second (follow-ups are difficult 
+                        # to detect, they could be mixed up with 2 separate emails with the same subject)
+                        if not (df.loc[email, 're'] or df.loc[item, 're'] or df.loc[email, 'fwd'] or df.loc[item, 'fwd']):
+                            # Shorter time to make sure it's a chain
+                            if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*7:
+                                continue
+                            # Forward 
+                            if (df.loc[item, 'From'] == df.loc[email, 'From']) and (df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']):
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                            # Reply or Forward
+                            if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                                if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                    if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break    
+                        # Re/Fwd in the second email
+                        elif (df.loc[email, 'fwd'] or df.loc[email, 're']):
+                            # All options
+                            if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                                if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                    if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Reply
+                            if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                                if df.loc[item, 'participants'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                            # Forward(1)
+                            """
+                            if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                                if df.loc[email, 'fwd']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                            """
+                            # Forward(2)
+                            if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                                if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                    if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Follow-up 
+                            if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
+                                if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                    if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Follow-up or Forward
+                            if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                                if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                    if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                        # Wrong Timing
+                        elif (df.loc[item, 'fwd'] or df.loc[item, 're']):
+                            # Shorter time to make sure it's a chain
+                            if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24:
+                                continue
+                            # All options
+                            if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Reply
+                            if df.loc[email, 'participants'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                                if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                            # Forward(1)
+                            """
+                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                if df.loc[item, 'fwd']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                            """
+                            # Forward(2)
+                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Follow-up
+                            if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                            # Follow-up or Forward
+                            if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                        candidate.append(email)
+                                        emails_list.remove(email)
+                                        break
+                        else:
+                            continue             
+            chains[key]['length'].append(len(candidate))
+            chains[key]['chains'].append(candidate)
+        if len(chains[key]['chains']) == 0:
+            del chains[key]  
+            
+            
+    # Third version
     chains = {}
     for key, value in list(ordered_groups.items()):
         chains[key]={}
@@ -324,91 +550,271 @@ if __name__ == "__main__":
                 candidate_cpy = candidate.copy()
                 for item in candidate_cpy:
                     # Time period regulation
-                    if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*30*2:
+                    if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*30*1:
                         continue 
+                    """
+                    # Avoiding time errors emails
+                    if (df.loc[email, 're'] == df.loc[item, 're']) and (df.loc[email, 'fwd'] == df.loc[item, 'fwd']):
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and (df.loc[email, 'recepients'] == df.loc[item, 'recepients']):
+                            if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
+                                if (add_clean_text(df.loc[item, 'content']) == add_clean_text(df.loc[email, 'content'])) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
+                                    emails_list.remove(email)
+                                    break 
+                    """
                     # Re/Fwd neither in the first email, nor in the second (follow-ups are difficult 
                     # to detect, they could be mixed up with 2 separate emails with the same subject)
                     if not (df.loc[email, 're'] or df.loc[item, 're'] or df.loc[email, 'fwd'] or df.loc[item, 'fwd']):
                         # Shorter time to make sure it's a chain
                         if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*7:
                             continue
-                        # Forward and (maybe?) Reply
-                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and (df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']) and contains_specific_phrases(df.loc[email, 'content-clean']):
-                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
-                                candidate.append(email)
-                                emails_list.remove(email)
-                                break
-                        # Reply
+                        # Forward 
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                            if (df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']):
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Reply or Forward
                         if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
-                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
-                                candidate.append(email)
-                                emails_list.remove(email)
-                                break    
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break    
                     # Re/Fwd in the second email
                     elif (df.loc[email, 'fwd'] or df.loc[email, 're']):
+                        # All options
+                        if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
                         # Reply
                         if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
-                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                            if df.loc[item, 'participants'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
                                 candidate.append(email)
                                 emails_list.remove(email)
                                 break
-                        # Forward
+                        """
+                        # Forward(1)
                         if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
                             if df.loc[email, 'fwd']:
                                 candidate.append(email)
                                 emails_list.remove(email)
                                 break
-                        # Another case of Forward
-                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and df.loc[email, 'fwd']:
-                            if add_clean_text(df.loc[item, 'content']) != add_clean_text(df.loc[email, 'content']):
-                                candidate.append(email)
-                                emails_list.remove(email)
-                                break
-                        # Follow-up
+                        # Forward(2)
+                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up 
                         if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
-                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
-                                # Avoiding time errors emails
-                                if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
-                                    if (add_clean_text(df.loc[item, 'content']) == add_clean_text(df.loc[email, 'content'])) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
-                                        emails_list.remove(email)
-                                        break 
-                                candidate.append(email)
-                                emails_list.remove(email)
-                                break
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up or Forward
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        """
                     # Wrong Timing
                     elif (df.loc[item, 'fwd'] or df.loc[item, 're']):
                         # Shorter time to make sure it's a chain
                         if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24:
                             continue
+                        # All options
+                        if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
                         # Reply
-                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                        if df.loc[email, 'participants'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
                             if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
                                 candidate.append(email)
                                 emails_list.remove(email)
                                 break
-                        # Forward
+                        """
+                        # Forward(1)
                         if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
                             if df.loc[item, 'fwd']:
                                 candidate.append(email)
                                 emails_list.remove(email)
                                 break
-                        # Another case of Forward
-                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and df.loc[item, 'fwd']:
-                            if add_clean_text(df.loc[item, 'content']) != add_clean_text(df.loc[email, 'content']):
-                                candidate.append(email)
-                                emails_list.remove(email)
-                                break
+                        # Forward(2)
+                        if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
                         # Follow-up
                         if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
                             if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
-                                # Avoiding time errors emails
-                                if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
-                                    if (add_clean_text(df.loc[item, 'content']) == add_clean_text(df.loc[email, 'content'])) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
-                                        emails_list.remove(email)
-                                        break  
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up or Forward
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        """
+                    else:
+                        continue             
+            chains[key]['length'].append(len(candidate))
+            chains[key]['chains'].append(candidate)
+        if len(chains[key]['chains']) == 0:
+            del chains[key]                      
+            
+            
+    # Fourth version
+    chains = {}
+    for key, value in list(ordered_groups.items()):
+        chains[key]={}
+        chains[key]['length'] = []
+        chains[key]['chains'] = []
+        emails_list = (ordered_groups[key]['ids']).copy()
+        while len(emails_list) > 0:
+            candidate = []
+            candidate.append(emails_list.pop(0))
+            emails_list_cpy = emails_list.copy()
+            for email in emails_list_cpy:
+                candidate_cpy = candidate.copy()
+                for item in candidate_cpy:
+                    # Time period regulation
+                    if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*30*1:
+                        continue 
+                    # Avoiding time errors emails
+                    if (df.loc[email, 're'] == df.loc[item, 're']) and (df.loc[email, 'fwd'] == df.loc[item, 'fwd']):
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and (df.loc[email, 'recepients'] == df.loc[item, 'recepients']):
+                            if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
+                                if (df.loc[item, 'content-extra-clean'] == df.loc[email, 'content-extra-clean']) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
+                                    emails_list.remove(email)
+                                    break 
+                    # Re/Fwd neither in the first email, nor in the second (follow-ups are difficult 
+                    # to detect, they could be mixed up with 2 separate emails with the same subject)
+                    if not (df.loc[email, 're'] or df.loc[item, 're'] or df.loc[email, 'fwd'] or df.loc[item, 'fwd']):
+                        # Shorter time to make sure it's a chain
+                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*7:
+                            continue
+                        # Forward 
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                            if (df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']):
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Reply or Forward
+                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break    
+                    # Re/Fwd in the second email
+                    elif (df.loc[email, 'fwd'] or df.loc[email, 're']):
+                        # All options
+                        if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Reply
+                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[item, 'participants'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
                                 candidate.append(email)
                                 emails_list.remove(email)
                                 break
+                        """
+                        # Forward(1)
+                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[email, 'fwd']:
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
+                        # Forward(2)
+                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up 
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up or Forward
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        """
+                    # Wrong Timing
+                    elif (df.loc[item, 'fwd'] or df.loc[item, 're']):
+                        # Shorter time to make sure it's a chain
+                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24:
+                            continue
+                        # All options
+                        if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Reply
+                        if df.loc[email, 'participants'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
+                        """
+                        # Forward(1)
+                        if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                            if df.loc[item, 'fwd']:
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
+                        # Forward(2)
+                        if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up or Forward
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        """
                     else:
                         continue             
             chains[key]['length'].append(len(candidate))
@@ -416,7 +822,140 @@ if __name__ == "__main__":
         if len(chains[key]['chains']) == 0:
             del chains[key]                      
                     
-
+    # Fifth version
+    chains = {}
+    for key, value in list(ordered_groups.items()):
+        chains[key]={}
+        chains[key]['length'] = []
+        chains[key]['chains'] = []
+        emails_list = (ordered_groups[key]['ids']).copy()
+        while len(emails_list) > 0:
+            candidate = []
+            candidate.append(emails_list.pop(0))
+            emails_list_cpy = emails_list.copy()
+            for email in emails_list_cpy:
+                candidate_cpy = candidate.copy()
+                for item in candidate_cpy:
+                    # Time period regulation
+                    if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*30*1:
+                        continue 
+                    # Avoiding time errors emails
+                    if (df.loc[email, 're'] == df.loc[item, 're']) and (df.loc[email, 'fwd'] == df.loc[item, 'fwd']):
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and (df.loc[email, 'recepients'] == df.loc[item, 'recepients']):
+                            if (abs(df.loc[item, 'date-timestamp'] - df.loc[email, 'date-timestamp'])/(60*60)) % 1 == 0:
+                                if (df.loc[item, 'content-extra-clean'] == df.loc[email, 'content-extra-clean']) or (df.loc[item, 'Content-Type'] != df.loc[email, 'Content-Type']):
+                                    emails_list.remove(email)
+                                    break 
+                    # Re/Fwd neither in the first email, nor in the second (follow-ups are difficult 
+                    # to detect, they could be mixed up with 2 separate emails with the same subject)
+                    if not (df.loc[email, 're'] or df.loc[item, 're'] or df.loc[email, 'fwd'] or df.loc[item, 'fwd']):
+                        # Shorter time to make sure it's a chain
+                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24*7:
+                            continue
+                        if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break  
+                    # Re/Fwd in the second email
+                    elif (df.loc[email, 'fwd'] or df.loc[email, 're']):
+                        # All options: follow-ups, forward and reply
+                        if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Reply
+                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[item, 'participants'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
+                        """
+                        # Forward(1)
+                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[email, 'fwd']:
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
+                        # Forward(2)
+                        if df.loc[email, 'From'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up 
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up or Forward
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                            if df.loc[item, 'content-clean'] in df.loc[email, 'content-clean']:
+                                if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        """
+                    # Wrong Timing
+                    elif (df.loc[item, 'fwd'] or df.loc[item, 're']):
+                        # Shorter time to make sure it's a chain
+                        if abs(df.loc[email, 'date-timestamp'] - df.loc[item, 'date-timestamp']) > (60**2)*24:
+                            continue
+                        # All options: follow-ups, forward and reply
+                        if df.loc[email, 'participants'].intersection(df.loc[item, 'participants']):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Reply
+                        if df.loc[email, 'participants'].intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From'])):
+                            if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
+                        """
+                        # Forward(1)
+                        if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                            if df.loc[item, 'fwd']:
+                                candidate.append(email)
+                                emails_list.remove(email)
+                                break
+                        # Forward(2)
+                        if df.loc[item, 'From'].intersection(df.loc[email, 'recepients'].difference(df.loc[email, 'From'])):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']) and ((df.loc[email, 'recepients'].difference(df.loc[email, 'From'])).intersection(df.loc[item, 'recepients'].difference(df.loc[item, 'From']))):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        # Follow-up or Forward
+                        if (df.loc[item, 'From'] == df.loc[email, 'From']):
+                            if df.loc[item, 'content-clean'] != df.loc[email, 'content-clean']:
+                                if df.loc[email, 'content-clean'] in df.loc[item, 'content-clean']:
+                                    candidate.append(email)
+                                    emails_list.remove(email)
+                                    break
+                        """
+                    else:
+                        continue             
+            chains[key]['length'].append(len(candidate))
+            chains[key]['chains'].append(candidate)
+        if len(chains[key]['chains']) == 0:
+            del chains[key]                      
+            
     total_chains = 0
     length_distribution = {}
 
@@ -451,8 +990,8 @@ if __name__ == "__main__":
         print(">10" + " "*7 + f"| {greater_than_10_count:<18}")
         
     # Separate dictionaries for different lengths
-    length_1 = {}
-    length_2 = {}
+    length_1 = chains_1.copy()
+    length_2 = chains_2.copy()
     length_2 = {}
     length_3 = {}
     length_4 = {}
@@ -470,9 +1009,9 @@ if __name__ == "__main__":
         chains_list = info['chains']
         for ind, length in enumerate(length_list):
             if length == 1:
-                chains_1[f"[{len(chains_1)+1}] " + topic] = chains_list[ind]
+                length_1[f"[{len(length_1)+1}] " + topic] = chains_list[ind]
             elif length == 2:
-                chains_2[f"[{len(chains_2)+1}] " + topic] = chains_list[ind]
+                length_2[f"[{len(length_2)+1}] " + topic] = chains_list[ind]
             elif length == 3:
                 length_3[f"[{len(length_3)+1}] " + topic] = chains_list[ind]
             elif length == 4:
@@ -494,12 +1033,11 @@ if __name__ == "__main__":
 
     # Sort by length
     length_10_plus = dict(sorted(length_10_plus.items(), key=lambda x: len(x[1]), reverse=True))
-    
 
     with open('../' + paths.CHAINS_1_NEW, 'w') as file:
-        json.dump(chains_1, file)
+        json.dump(length_1, file)
     with open('../' + paths.CHAINS_2_NEW, 'w') as file:
-        json.dump(chains_2, file)
+        json.dump(length_2, file)
     with open('../' + paths.CHAINS_3, 'w') as file:
         json.dump(length_3, file)
     with open('../' + paths.CHAINS_4, 'w') as file:
@@ -554,24 +1092,35 @@ if __name__ == "__main__":
 # Print distribution for lengths of the groups and their corresponding  chains to compare the results
 for key, value in length_10_plus.items():
     print(extract_heading_name(key), ' ', ordered_groups[extract_heading_name(key)]['length'], ': ', len(value))
+    
+for key, value in length_10 .items():
+    print(extract_heading_name(key), ' ', ordered_groups[extract_heading_name(key)]['length'], ': ', len(value))
+    
 
-print_chains(chains, "WorldCom Calling Card", '../' + paths.CHECK_CHAINS + 'checking-chain.txt')
-print_groups(ordered_groups, "WorldCom Calling Card", '../' + paths.CHECK_CHAINS + 'checking-ordered-group.txt')
+print_chains(chains, 'Blue Dog', '../' + paths.CHECK_CHAINS + 'checking-chain.txt')
+print_groups(ordered_groups, "Revised ETS Risk Management Procedures and Controls", '../' + paths.CHECK_CHAINS + 'checking-ordered-group.txt')
+
+i=1
+for key, value in length_10 .items():
+    print_chains(chains, extract_heading_name(key), '../' + paths.CHECK_CHAINS + f'checking-chain-{i}.txt')
+    print_groups(ordered_groups, extract_heading_name(key), '../' + paths.CHECK_CHAINS + f'checking-ordered-group-{i}.txt')
+    i +=1
 
 # Results:
 # Rebuild:
-# 'apb checkout', 'natsource checkout', 'apb', 'natsource', 'tfs' -> text of one should be in another to build the chain, 
+# 'apb checkout', 'natsource checkout', 'apb', 'natsource', 'tfs', 'tfs checkout' -> text of one should be in another to build the chain, 
 # father without RE and FWD, child with RE or FWD
 #
 # <no subject>  -> to remove
 # 
 # 'A Christmas Tasters', 'Enfolio Contract with CPS', -> take the whole order group instead of the chains result
 #
-# 'Centana', 'NETCO', "Master Netting Agreement Assignments", "WorldCom Calling Card" -> 1-2 days time gap instead of 2 months, father without RE and FWD, child with RE or FWD
+# 'Centana', 'NETCO', "Master Netting Agreement Assignments" -> 1-2 days time gap instead of 2 months, father without RE and FWD, child with RE or FWD
+# "WorldCom Calling Card", "Stepenovitch" -> 1-2 days time gap instead of 2 months, father without RE and FWD, child with RE or FWD#
 #
 # 'Cabot Oil & Gas Marketing Corporation', -> everything is ok
 # 'One more try', 'Thanksgiving', 'Organization Announcement', 'How good is Temptation Island 2' -> everything is ok
-# 'hi!', "I'm Leaving Enron"  -> everything is ok
+# 'hi!', "I'm Leaving Enron", "Teams", "Carr Futures"  -> everything is ok
 
 # Same for the length of 10
 for key, value in length_10.items():
