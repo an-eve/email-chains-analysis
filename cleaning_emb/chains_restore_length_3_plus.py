@@ -1125,18 +1125,19 @@ for key, value in length_10_plus.items():
     print(extract_heading_name(key), ': ', ordered_groups[extract_heading_name(key)]['length'], ' vs ', len(value))
 
 import random
-checks = random.sample(list(length_3.keys()), 50)
+checks = random.sample(list(length_7.keys()), 50)
 for key in checks:
     print(extract_heading_name(key), ': ', ordered_groups[extract_heading_name(key)]['length'])
-
-for i, key in enumerate(checks):
-    print_chains(chains, extract_heading_name(key), '../' + paths.CHECK_CHAINS + f'checking-chain-{i+1}.txt')
-    print_groups(ordered_groups, extract_heading_name(key), '../' + paths.CHECK_CHAINS + f'checking-ordered-group-{+1}.txt')  
+    
 
 print_chains(chains, 'New Mexico Power Plant Project', '../' + paths.CHECK_CHAINS + 'checking-chain.txt')
 print_groups(ordered_groups, "Revised ETS Risk Management Procedures and Controls", '../' + paths.CHECK_CHAINS + 'checking-ordered-group.txt')
 
-
+i=1
+for key in checks:
+    print_chains(chains, extract_heading_name(key), '../' + paths.CHECK_CHAINS + f'checking-chain-{i}.txt')
+    print_groups(ordered_groups, extract_heading_name(key), '../' + paths.CHECK_CHAINS + f'checking-ordered-group-{i}.txt')
+    i +=1
 
 
 
