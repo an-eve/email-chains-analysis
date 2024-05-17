@@ -92,6 +92,7 @@ def clean_email_body(body):
     r'Original Message',
     r'Forwarded by',
     r'Sent by:',
+    r'From:',
     ]
 
     for pattern in patterns:
@@ -112,19 +113,26 @@ def clean_email_body(body):
     return body.strip()
 
 
-def when_to_insert_original_message(text):
+def where_to_insert_original_message(text):
     # Define the markers
     forward_marker = "Forwarded by"
     original_message_marker = "Original Message"
     to_marker = "To:"
+
+    # Find positions of markers
+    forward_pos = text.find(forward_marker)
+    original_pos = text.find(original_message_marker)
+    to_pos = text.find(to_marker)
     
-    # Check if "Forwarded by" or "Original Message" exist in the text
-    if forward_marker not in text and original_message_marker not in text:
-        # Find the position to insert "Original Message" before the first "To:"
-        to_pos = text.find(to_marker)
+    if (forward_pos != -1) and (to_pos > forward_pos):
+        return text   
+    elif (to_pos > original_pos) and (original_pos != -1):
+        return text
+    else:
         if to_pos != -1:
             text = text[:to_pos] + original_message_marker + ' ' + text[to_pos:]
     return text
+
         
 def clean_text_initial(text):
     '''Cleans the text content for later processing, removing unnecessary characters and spaces.
@@ -179,7 +187,7 @@ def clean_text_initial(text):
     text = re.sub(r'[\n\t]+', ' ', text)
     text = re.sub(r'\s{2,}', ' ', text)
     
-    text = when_to_insert_original_message(text)
+    text =  where_to_insert_original_message(text)
     pattern = r"\b\w+\s\w+(?:@\w+)? \d{2}/\d{2}/\d{4} \d{2}:\d{2} [ap]m\b"
     text = re.sub(pattern, "", text, flags=re.IGNORECASE)
     
@@ -196,13 +204,10 @@ def clean_text_further(text):
     Returns:
     - str: Cleaned text content.
     '''
-
-    # Pattern to match
-    pattern = r"\b\w+\s\w+(?:@\w+)? \d{2}/\d{2}/\d{4} \d{2}:\d{2} [ap]m\b"
-
-    # Remove the pattern
+    # Regular expression pattern to match the pattern
+    pattern = r'[\w\.-]+@[\w\.-]+\s\d{2}/\d{2}/\d{2,4}\s\d{2}:\d{2}\s?[APMapm]{2}'
     text = re.sub(pattern, "", text, flags=re.IGNORECASE)
-
+    
     if (len(text) > 0) and (text[0] == "-"):
         text = text[1:]
     if (len(text) > 0) and (text[-1] == "-"):
@@ -215,6 +220,12 @@ def clean_text_further(text):
 def add_subject_to_content(row, name_col_content):
     return f"Subject: {row['subject-clean']}. {row[name_col_content]}"
 
+def add_attachement_to_content(row, name_col_content):
+    if ('Attachement file.' in row['content-attachement']) and not ('Attachement file.' in row[name_col_content]):
+        return f"{row[name_col_content]} Attachement file."
+    else:
+        return row[name_col_content]
+        
 def extract_heading_name(heading):
     # Define a regular expression pattern to match the heading structure
     pattern = re.compile(r'\[\d+\]\s*(.*)')
@@ -295,9 +306,10 @@ if __name__ == "__main__":
     df_chains['content-new-1'] = df_chains['content-new'].apply(clean_email_body)
     df_chains['content-new-2'] = df_chains['content-new-1'].apply(clean_text_further)
     df_chains['content-new-2'] = df_chains.apply(add_subject_to_content, args=('content-new-2',), axis=1)
+    df_chains['content-new-2'] = df_chains.apply(add_attachement_to_content, args=('content-new-2',), axis=1)
     
     import random
-    chains = all_chains[0]
+    chains = all_chains[9]
     checks = random.sample(list(chains.keys()), 50)
     # Write chains and groups in a file
     for i, key in enumerate(checks):
@@ -314,8 +326,8 @@ if __name__ == "__main__":
     df_chains['word_count'] = df_chains['content-new-2'].apply(count_words)
     df_chains['word_count'].max()
     
-    df_chains.loc[df_chains['word_count']<50]['word_count'].plot(kind='hist', bins=100, edgecolor='black')
-
+    df_chains.loc[df_chains['word_count']<600]['word_count'].plot(kind='hist', bins=100, edgecolor='black')
+    df_chains['word_count'].plot(kind='hist', bins=100, edgecolor='black')
     # Add labels and title
     plt.xlabel('Values')
     plt.ylabel('Frequency')
@@ -323,13 +335,15 @@ if __name__ == "__main__":
 
     # Show plot
     plt.show()
-    
-    len(df_chains.loc[df_chains['word_count']==0])
+    df_chains['word_count'].median()
+    len(df_chains.loc[df_chains['word_count']<10])
     
     with open('../'+paths.CHECK_CHAINS + f'null-body.txt', 'w') as combined_file:
-        for i in df_chains.loc[df_chains['word_count']==0, 'content'].items():
+        for ind, cont in df_chains.loc[df_chains['word_count']<10, ['content', 'content-new-2']].iterrows():
             combined_file.write('\n'*3 + '#' * 10 + ' ' * 15 + 'Message' + ' ' * 16 + '#' * 10 + '\n'*3)
-            combined_file.write(i[1])
+            combined_file.write(cont['content'])
+            combined_file.write('\n'*3 + '#' * 10 + ' ' * 15 + 'Cleaned' + ' ' * 16 + '#' * 10 + '\n'*3)
+            combined_file.write(cont['content-new-2'])
 
         
     df_to_emb = df_chains.copy()
@@ -339,60 +353,202 @@ if __name__ == "__main__":
        'X-Folder', 'X-Origin', 'X-FileName', 'content-clean', 'content',
        'content-attachement', 'content-new', 'content-new-1', 'word_count']
     df_to_emb.drop(columns=columns_to_drop, inplace=True)
-    df_to_emb.to_csv('../data/mails-to_emb.csv', index=False)
+    df_to_emb.to_csv('../data/mails-for-emb.csv', index=False)
     
 
 
 
+import re
 
-                
+# Sample text
+text = """
+"JASON PETERS" PETEJ@andrews-kurth.com 10/04/2000 05:27 PM
+
+Another line of text.
+Grant Cox gacox@mail.gsi-net.com 06/06/2001 01:23 PM
+
+Leslie Lawner@ENRON 11/29/00 11:35 AM
+Scott Bolton@ENRON COMMUNICATIONS 11/29/2000 10:10 AM
+
+More text here.
+"""
+
+import re
+
+# Sample text
+text = "Sara.Shackleton@enron.com 10/04/00 05:36PM some other text Sara.Shackleton@enron.com 11/04/00 06:36AM"
+
+# Regular expression pattern
+pattern = r'[\w\.-]+@[\w\.-]+\s\d{2}/\d{2}/\d{2,4}\s\d{2}:\d{2}\s?[APMapm]{2}'
+
+# Replace the matched patterns with an empty string
+cleaned_text = re.sub(pattern, '', text, flags=re.IGNORECASE)
+
+print(cleaned_text)
+
+
+
+               
     
     
 
 # Example usage
-email_text = """-----Original Message-----
-From: Herod, Brenda F. 
-Sent: Sunday, July 22, 2001 4:29 PM
-To: Ha, Kenny; Stokley, Chris
-Cc: Hart, Vivian; Thompson, Patti
-Subject: FW: Metered Usage
- 
-As part of Project Ranger, it is my goal to have a single repository to house all actual data, allowing users to access data through an ad hoc reporting tool.  Additionally, as areas identify needs, I would hope that we can develop feeds rather than just ad hoc reporting.
- 
-We are setting up a meeting with CSC for this Wednesday to discuss the needs and start defining Iteration 2 of the project.  Vivian forwarded me this meeting that you have already set-up.  My question:  Without knowing the full scope of your efforts, I'd like to propose a single initiative to obtain actuals.  Additionally, we wanted to set-up this meeting for Wednesday when the CSC business analyst is in town.  Do you think it would be advantageous to combine the meetings, and schedule it for Wednesday?  
- 
-We will move forward with our efforts and will schedule a meeting for Wednesday.  If you all want to combine efforts, please let me know and we will include you on the meeting.
- 
-Chris - I had already included both you and Murray on the invitation listing.  Will you forward this E-mail to him?  I'm having problems trying to call up his E-mail address.
- 
-Please let me know.  
------Original Message----- 
-From: Hart, Vivian 
-Sent: Fri 7/20/2001 5:12 PM 
-To: Herod, Brenda F. 
-Cc: 
-Subject: Metered Usage
-Kenny Ha who works for Anthony is already setting a meeting with the Portland guys on this.
-Should you just attend this meeting or do you still want to have a separate meeting.  Kevin
-Crippen is not going to be in until Wednesday though.
----------------------- Forwarded by Vivian Hart/HOU/EES on 07/20/2001 04:59 PM ---------------------------
-Alarm enabled: an alarm will occur 10 minutes before the start time of this entry.
-        Calendar Entry 
- 
-Brief description:
-Date:
-Time:
-EB1114 / CSC Metering Data
-07/24/2001
-10:00 AM - 11:00 AM
- 
-Detailed description:
-Kenny Ha, Todd Taylor, John Rutledge, Maurice Winter, Vivian Hart, Chris Stokley, Murray O'Neil
-Invitations have been sent to:  Todd Taylor/HOU/EES, John Rutledge/HOU/EES, Maurice Winter/HOU/EES, Vivian Hart/HOU/EES, Chris Stokley/HOU/ECT, Murray P O'Neil/HOU/ECT
-_________________________________________________________________________
-Chairperson:    Kenny Ha/HOU/EES
-Sent by:        Melinda Winkler/HOU/EES
-This meeting repeats   starting on    (if the date occurs on a weekend the meeting ).
+email_text = """Kay
+
+Sounds good -- I'll come up to your office at 1 PM, and we can call Ben from 
+there.
+
+Rebecca
+
+
+
+
+
+Kay Mann
+05/11/2001 10:41 AM
+To: Rebecca Walker/NA/Enron@Enron
+cc:  
+
+Subject: Re: Blue Dog Meeting Today  
+
+How about 100?
+
+
+   
+	
+	
+	From:  Rebecca Walker                           05/11/2001 08:49 AM
+	
+
+To: Kay Mann/Corp/Enron@Enron
+cc:  
+
+Subject: Blue Dog Meeting Today
+
+Kay
+
+When are you available today to get together and call Ben about the Blue Dog 
+invoices?  As far as I know, Ben's only conflict today is a meeting from 2-3 
+(Houston time), and I can come up to your office any time.
+
+Also, an attorney from King & Spalding (I believe she said her name was 
+Marisa Rudder?) left a message for me last night asking about the status of 
+the original closing documents for the Blue Dog/Northwestern transaction.  Do 
+you know where these are?
+
+Thanks,
+Rebecca
+x57968
+---------------------- Forwarded by Rebecca Walker/NA/Enron on 05/11/2001 
+08:44 AM ---------------------------
+   
+	
+	
+	From:  Ben F Jacoby @ ECT                           05/10/2001 07:30 PM
+	
+
+Sent by: Ben Jacoby@ECT
+To: Rebecca Walker
+cc:  
+
+Subject: Re: payment of invoices, Blue Dog Max
+
+Rebecca:
+
+Please coordinate a time with Kay that will work. I will be in CA and will 
+join by phone.
+
+Thanks,
+
+Ben
+---------------------- Forwarded by Ben Jacoby/HOU/ECT on 05/10/2001 07:29 PM 
+---------------------------
+
+
+Kay Mann@ENRON
+05/10/2001 08:29 AM
+To: Ben F Jacoby/HOU/ECT@ECT
+cc: Rebecca Walker/NA/Enron@Enron, Chris Booth/NA/Enron@ECT 
+Subject: Re: payment of invoices, Blue Dog Max  
+
+Looks like Friday will work.
+
+
+   
+	
+	
+	From:  Ben F Jacoby @ ECT                           05/09/2001 07:12 PM
+	
+
+Sent by: Ben Jacoby@ECT
+To: Rebecca Walker/NA/Enron@ENRON
+cc: Chris Booth/NA/Enron, Kay Mann 
+
+Subject: Re: payment of invoices, Blue Dog Max  
+
+Before we send anything other than the "thank you" e-mail I sent to Jeff, and 
+before we have any conversations with GE on this point, we need to seek Kay's 
+guidance based on her read of the contract and the issues Jeff raised in his 
+letter.
+
+Kay - will you have some time to talk about this Friday?
+
+Regards,
+
+Ben
+
+
+   
+	Enron North America Corp.
+	
+	From:  Rebecca Walker @ ENRON                           05/09/2001 01:39 PM
+	
+
+To: Ben Jacoby/HOU/ECT@ECT
+cc: Chris Booth/NA/Enron@Enron 
+Subject: payment of invoices, Blue Dog Max
+
+Ben
+
+The way we actually paid the invoices changed slightly after Chris had sent 
+the letter to GE.  We deducted the LD's and the retention amount from the 
+April 25th invoice (since the May invoice was not due until May 25th).
+
+On May 8th, a wire totalling $1,671,039 was sent to GE -- this represented 
+$469,000 for the c/o #2 invoice and $1,202,039 for the April 25th invoice 
+less the LD's and retention.
+
+To respond to Jeff Darst's letter, we can say that we are planning on paying 
+the May 25th invoice in full (assuming we're not planning on deducting 
+additional LD's for May 8-May 25).  
+
+We just need to clarify with Jeff that both the LD and the retention were 
+deducted from the April invoice, and then we can deal with resolving the 
+issues he discusses in his letter.
+
+Regards,
+Rebecca
+---------------------- Forwarded by Rebecca Walker/NA/Enron on 05/09/2001 
+01:22 PM ---------------------------
+
+
+jeffrey.darst@ps.ge.com on 05/09/2001 01:18:59 PM
+To: chris.booth@enron.com
+cc: Ben.Jacoby@enron.com, chasecl@pssch.ps.ge.com, john.schroeder@ps.ge.com, 
+stephen.swift@ps.ge.com, Rebecca.Walker@enron.com 
+
+Subject: payment of invoices, Blue Dog Max
+
+
+Chris,
+
+Please see attached letter, original to follow via FedEx.
+
+ <<Microsoft Word - BDM002.pdf>>
+ <<Microsoft Word - BDM002.pdf>>
+
+ - Microsoft Word - BDM002.pdf
+ - Microsoft Word - BDM002.pdf
 """
 
 
