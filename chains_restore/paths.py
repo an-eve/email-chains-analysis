@@ -24,7 +24,6 @@ SUBJECT_GROUPS_6_TIME = 'data/subject-groups/groups_6_time.json'
 CHECK_CHAINS = 'data/check-chains/'
 
 ORDERED_GROUPS = 'data/chains/ordered_groups.json'
-CHAINS = 'data/chains/chains.json'
 
 CHAINS_1 = 'data/chains/chains_1.json'
 CHAINS_1_NEW = 'data/chains/chains_1_new.json'

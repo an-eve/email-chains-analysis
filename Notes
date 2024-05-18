@@ -1,0 +1,45 @@
+Elbow method for clustering -> how to define the optimal number of clusters?
+GPT advantages for my thesis?
+How llm embeddings work?
+Transformers
+
+MENTION that noise in clustring could be because of the emails which don t follow each other, missing emails in the dataframe, but it was a shame to delete them
+
+some plots info about the dataset, time maybe in the beginning, aggle inspired
+
+Read more about the models!! all steps of llms
+read more about different types of embeddings
+
+in diplom about the embedding
+story about choosing the embedding -> try it, different groups subject, then performing clustering to try to find clusters: hi examples, booking airbnb, maybe sth else
+time wrap on them
+
+add example of how the chain looks llike, that i have to remove the repeating part
+
+all problems, duo=plicates, with different senders, emails
+
+recall all the satges about the dataframe creation, checking
+
+emails subjects distribution
+longest chain
+emails length distribution
+
+
+email lenghth dist before and after cleaning. plots, example of nested emails
+detect most similar emails
+
+----------------------------------------------
+18 june!!!! thesis upload
+13-19 Dinamic Time Wrap dist
+20-26 Clustering
+27-02 Manual analysis
+02-18 writing thesis
+----------------------------------------------
+
+Now, do the following to preprocess text:
+
+lowercasing all words
+Remove extra new lines
+Remove extra tabs, punctuations, commas
+Remove extra white spaces
+Remove stopwords
