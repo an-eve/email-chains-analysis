@@ -3,6 +3,34 @@ GPT advantages for my thesis?
 How llm embeddings work?
 Transformers
 
+Interesing: chains of different length in one cluster
+
+Idea: keep all the text for the first emails in the chain, and only top part for others; move attahement file after subject not to cut it
+
+Problems in dataframe folder!! sendres dif emails, timestamps, not always RE
+
+estimated time with numba, without numba -> reasoning here on using other laguage saoart from python
+
+parameter for clustering algorithms!!!
+
+plottig emails from clusters using pca to heck if sth is visible
+
+
+Read other thesis, take ideas from them!! to evaluate, to compute
+Visual repr distance matrix
+
+Ask gpt for each step to elaborate!!
+
+mails similarity matrix?? the most similar emails?
+maybe to perform clustering on emails separately to see the distrib?
+
+PCA?? -> how could it help?is theer a way to visualize the results?
+
+Maybe better to clean emails before the embeddings?
+
+Clustering-> try cuml and sklearn, look for other options, gridsearch? adjust parameters; metrics? find info about clustering
+embeddings, read more explain why I chose the one I chose
+
 MENTION that noise in clustring could be because of the emails which don t follow each other, missing emails in the dataframe, but it was a shame to delete them
 
 some plots info about the dataset, time maybe in the beginning, aggle inspired
@@ -30,9 +58,8 @@ detect most similar emails
 
 ----------------------------------------------
 18 june!!!! thesis upload
-13-19 Dinamic Time Wrap dist
 20-26 Clustering
-27-02 Manual analysis
+27-02 Manual analysis + possibl metrics
 02-18 writing thesis
 ----------------------------------------------
 
@@ -43,3 +70,6 @@ Remove extra new lines
 Remove extra tabs, punctuations, commas
 Remove extra white spaces
 Remove stopwords
+
+
+I want t use clustering with precomputed distance matrix. What methods and what libraries I could use in Python? What metrics could I use to estimate my result?
