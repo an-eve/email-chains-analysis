@@ -1,0 +1,43 @@
+%!TEX root = ../dissertation.tex
+
+\chapter{Introduction}
+\label{chp:intro}
+
+\section{Motivation}
+\label{sec:motivation}
+
+ In the contemporary work environment, people are overwhelmed with the large amount of data that must be carefully managed and processed. This data is collected for various business, safety, and legal reasons, making manual handling impractical. Employees often end up doing repetitive tasks like reading, responding, attaching files, forwarding information, and managing spam, which lowers productivity and job satisfaction.
+ 
+ A 2017 study by McKinsey\&Company\cite{Manyika2017} showed that nearly 60\% of jobs could automate 30\% or more of their activities with current technologies. Over time, we develop more tools that can modernize our daily work activities.
+ 
+ Automation offers a great solution to the challenges at work by significantly reducing costs and improving efficiency. By using automation technologies, businesses can off-load routine tasks, allowing employees to focus on more strategic and innovative activities. Recent studies highlight the significant impact of automation on the workplace. For example, a McKinsey report\cite{Bughin2018} emphasizes the potential for automation to reshape various sectors by improving analytics and fostering human-machine collaboration.
+ 
+ Furthermore, a 2023 study by Deloitte\cite{Deloitte2023} identifies key trends in workflow automation that are reshaping the future, showing how automation can streamline processes and enhance business performance. Another report by Smartbridge\cite{Smartbridge2023} notes that CIOs are increasingly integrating automation into their strategies to reduce inefficiencies and improve customer experiences.
+ 
+ These findings emphasize the necessity of adopting automation to manage the data load and streamline business operations effectively. There are many fields where automation could be applied, with various techniques for each specific case. In 
+ this study, we focus on exploring the possibilities for the business correspondence processes automation, developing one possible pipeline for this scenario.
+
+
+\section{Objectives}
+\label{sec:objectives}
+
+ The primary objective of this project is to utilize data mining techniques on email data to extract potential business processes that could later be used for automating repetitive email management tasks. Specifically, we aim to:
+ \begin{itemize}
+    \item Develop a systematic methodology to reconstruct email chains and convert them into structured data.
+    \item Create a pipeline for processing and clustering email chains, employing recent technologies where applicable.
+    \item Identify candidate processes and evaluate them in situations where no ground truth is available.
+    \item Assess the feasibility of the entire process and each stage individually in terms of time and computational resources.
+  \end{itemize}
+
+
+\section{Limitations}
+\label{sec:limitations}
+
+While the proposed project holds significant promise, it is important to acknowledge its limitations:
+\begin{itemize}
+    \item The initial focus on email data means that the findings and solutions may be biased toward the specific characteristics of email communications, especially the chain extraction process. Extending these methods to other types of data may require additional adaptations.
+    \item The evaluation stage is complicated by the lack of labeled data, which must be created to properly assess the quality of the developed methodology.
+    \item Implementing the automation solutions at scale in a real-world environment may pose challenges to the existing workflow. Additional computational resources and some method modifications may be required.
+\end{itemize}
+
+Despite these limitations, the project aims to provide a framework for email process extraction, with potential applications extending to other areas of data management and business operations.
