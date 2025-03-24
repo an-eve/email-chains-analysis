@@ -6,16 +6,42 @@
 \section{Process Extraction}
 \label{sec:process_extraction}
 
+ Process extraction involves the identification and extraction of process-related information from unstructured data sources such as documents, logs, and databases. This technique is important in fields like business process management, where understanding and optimizing workflows can lead to significant efficiency improvements.
+ 
+ Due to its popularity and importance, the field of process mining has given rise to specialized conferences and events, such as the International Conference on Process Mining (\href{https://icpmconference.org/}{ICPM}). These conferences provide a platform for researchers, practitioners, and industry experts to share the latest developments, tools, and techniques in process mining and extraction.\\
+ 
+ Recent interests in process extraction have been driven by the integration of machine learning and natural language processing techniques. There are some notable trends:
 
+\begin{itemize}
+    \item \textbf{Automated workflow discovery} involves using deep learning models to automate the extraction of workflows from textual data, reducing the need for manual process documentation. An example of this approach is demonstrated in the paper\cite{liu2018jointly} which presents a framework for extracting multiple events from a single sentence using syntactic shortcut arcs and attention-based graph convolution networks, enhancing information ow and capturing long-range dependencies.
 
-For more information, visit the \href{https://icpmconference.org/}{ICPM Conference website}.
+    \item \textbf{Event log analysis} involves improving methods for extracting events from logs using unsupervised and semi-supervised learning to identify patterns and anomalies in processes.
+ For example, in the paper\cite{he2024semi} the authors propose DQNLog, a method utilizing deep reinforcement learning to improve log anomaly detection. DQNLog analyzes log data by combining labeled and large-scale unlabeled data, using a deep Q-network to identify known and unknown anomalies.
 
+    \item  \textbf{Multi-source data integration} includes combining data from various sources such as textual documents, databases, and logs to create a comprehensive view of business processes. This approach facilitates decision-making, analytics, and an understanding of operations. Effective data integration strategies must address challenges like data heterogeneity, interoperability, and stakeholder engagement to ensure seamless and efficient data consolidation\cite{samuelsen2019integrating}.
 
+    \item   \textbf{Real-time process monitoring} leverages streaming data analytics to monitor and extract processes in real-time, enabling proactive decision-making. This approach ensures timely detection and response to operational changes or issues. For instance, the paper\cite{yue2024event} demonstrates the utility of real-time data processing by integrating ne-grained event extraction in legal contexts. Their method, EGG, showcases how real-time extraction and analysis of events can improve the generation of court views, ultimately helping legal professionals make decisions efficiently.
+\end{itemize}
 
 
 \section{Email Mining}
 \label{sec:email_mining}
 
+ Email mining refers to the extraction of useful information and patterns from email data.
+ This entails analyzing the content, metadata, and communication patterns within emails to derive insights. It is applied in various domains such as customer service, legal discovery, and organizational behavior analysis.
+ 
+ Among email mining tasks, the most popular nowadays are:
+
+ \begin{itemize}
+     \item  \textbf{Sentiment Analysis:} Utilizing NLP techniques to assess the sentiment conveyed in emails, which can help in understanding customer satisfaction or employee morale. Sentiment analysis involves classifying the email content as positive, negative, or neutral, and can also extend to more nuanced emotions. Techniques such as lexicon-based approaches,
+ machine learning classifiers, and deep learning models are commonly used.
+    \item \textbf{Topic Modeling:} Implementing algorithms to identify and categorize the main topics discussed in large volumes of email communications. Topic modeling helps in summarizing the content of emails, discovering hidden patterns, and organizing the emails into meaningful clusters.
+    \item \textbf{Spam Detection and Filtering:} Developing more sophisticated models to detect and filter spam emails, leveraging machine learning techniques to improve accuracy and reduce false positives. Techniques include Bayesian filtering, support vector machines, and neural networks. The goal is to distinguish between legitimate emails and unwanted spam, ensuring important communications are not lost while minimizing the intrusion of spam.
+    \item \textbf{Network Analysis:} Analyzing email communication patterns to map out social networks within organizations, identifying key influencers and collaboration bottlenecks.
+ Network analysis involves constructing graphs where nodes represent individuals and edges represent email interactions. This analysis can reveal insights into the structure and dynamics of communication within an organization, such as identifying central figures, understanding community structures, and detecting anomalies in communication patterns.
+ \end{itemize}
+ 
+ Next, we discuss the work already done with the Enron email dataset and other email data also providing examples of email mining trends mentioned in this part.
 
 \section{Enron Emails Dataset}
 \label{sec:enron_emails_dataset}
